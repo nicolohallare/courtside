@@ -354,7 +354,7 @@ begin
   return rid;
 end $$;
 
-create or replace function public.hold_minutes() returns int language sql stable as $$
+create or replace function public.hold_minutes() returns int language sql stable set search_path = public as $$
   select public.cfg('hold_minutes', '15')::int
 $$;
 
