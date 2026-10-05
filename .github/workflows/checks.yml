@@ -1,0 +1,32 @@
+name: checks
+on: [push, pull_request]
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_PASSWORD: postgres }
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Guards
+        run: bash scripts/check.sh
+      - name: Database rules tests
+        run: |
+          createdb courtside_t
+          cat supabase/tests/local_shim.sql supabase/migrations/2026100600000{1,2,3}_*.sql | psql -q -v ON_ERROR_STOP=1 -d courtside_t
+          psql -q -t -v ON_ERROR_STOP=1 -d courtside_t -f supabase/tests/rules_test.sql | grep -E 'PASSED'
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: web/package-lock.json }
+      - name: Build web app
+        working-directory: web
+        run: npm ci && npx tsc --noEmit && npx next build
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
