@@ -21,7 +21,7 @@ jobs:
       - name: Database rules tests
         run: |
           createdb courtside_t
-          cat supabase/tests/local_shim.sql supabase/migrations/2026100600000{1,2,3}_*.sql | psql -q -v ON_ERROR_STOP=1 -d courtside_t
+          cat supabase/tests/local_shim.sql supabase/migrations/2026100600000{1,2,3,5}_*.sql | psql -q -v ON_ERROR_STOP=1 -d courtside_t
           psql -q -t -v ON_ERROR_STOP=1 -d courtside_t -f supabase/tests/rules_test.sql | grep -E 'PASSED'
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm, cache-dependency-path: web/package-lock.json }

@@ -20,9 +20,9 @@ Out for now: coaching, tournaments, DUPR court board (from MDP, phase 2), discov
 
 ```
 supabase/
-  migrations/   core tables · business rules · access (RLS + grants) · storage + schedule
+  migrations/   core tables · business rules · access (RLS + grants) · storage + schedule · payouts
   functions/    verify-receipt (AI receipt check) · techpay (checkout + webhook)
-  tests/        rules_test.sql: 52 checks run on plain Postgres
+  tests/        rules_test.sql: 74 checks run on plain Postgres
 web/            Next.js app (player pages + /admin/<club> + /platform)
 scripts/check.sh  guards: no function defined twice, every rpc() the app calls exists
 ```
@@ -39,6 +39,7 @@ Learned at MDP; each one cost members money or access once.
 | Never trust a webhook | `techpay` calls TechPay back before `settle_gateway_payment`, which settles once even across retries and holds amount mismatches. |
 | Overrides leave a trail | Approvals, cash, cancellations, role changes all write to `audit_log` with a required note. |
 | Paid but not registered | `run_maintenance` raises an alert for any approved payment with no live booking and no refund. |
+| Money held for clubs is always accounted for | At `platform` clubs every TechPay payment and refund writes to `club_ledger`; `run_payouts` bundles what has passed the 2-day hold into one payout per verified account; a failed payout returns its lines to the next run. |
 
 ## Setup
 
@@ -50,6 +51,10 @@ Learned at MDP; each one cost members money or access once.
 
 Instant pay rolls out in stages through `app_config.gateway_live`: `false` → `admins` (club staff only) → `true`.
 
+## Payouts (platform collects)
+
+Clubs default to `settlement_mode = 'platform'`: players pay into Match Day Pickle's TechPay account and the club is paid out weekly from `/platform` (Run payouts → send → Mark sent with the reference). Refunds on those payments are sent by the platform and taken from the next payout. Registered venues can be switched to `direct` once they are TechPay sub-merchants. Before going live: legal and tax review of holding club funds (BSP) and of receipts for the club's share (BIR); ideally TechPay performs the split and the payouts itself.
+
 ## Open with TechPay
 
 - How a club is onboarded as a sub-merchant, and the field name that routes a checkout to it (`TECHPAY_SUBMERCHANT_FIELD`). Until then, payments settle to one merchant and are split by reference prefix `CS<CLUB CODE>…`.
@@ -59,7 +64,7 @@ Instant pay rolls out in stages through `app_config.gateway_live`: `false` → `
 
 ```
 bash scripts/check.sh
-cat supabase/tests/local_shim.sql supabase/migrations/2026100600000{1,2,3}_*.sql | psql -d courtside_t
+cat supabase/tests/local_shim.sql supabase/migrations/2026100600000{1,2,3,5}_*.sql | psql -d courtside_t
 psql -d courtside_t -f supabase/tests/rules_test.sql
 ```
 CI runs both and builds the app on every push.

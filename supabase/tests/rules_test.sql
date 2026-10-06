@@ -262,5 +262,75 @@ select t_ok((select count(*) from court_reservations where source_id = (select v
 select t_ok((club_dashboard((select v from ids where k='club'), now() - interval '1 day', now() + interval '1 day')->>'refunds_owed')::numeric > 0,
   'dashboard shows refunds owed');
 
+-- ── payouts: platform collects, pays each club its share ───────────
 reset role;
+select t_ok((select count(*) from club_ledger where kind = 'collection')
+            = (select count(*) from payments where method = 'techpay' and status = 'approved' and not is_test),
+  'every approved TechPay payment credits the club ledger once');
+select t_ok((select coalesce(sum(l.amount), 0) from club_ledger l
+             left join refunds r on r.id = l.refund_id
+             where l.payment_id = (select id from payments where gateway_ref = 'CSSUNLATE0001')
+                or r.payment_id = (select id from payments where gateway_ref = 'CSSUNLATE0001')) = 0,
+  'a late payment that became a refund nets to zero for the club');
+select t_ok((select count(*) from refunds where paid_by = 'platform') >= 1,
+  'refunds on TechPay bookings are paid by the platform');
+select t_ok((select bool_and(paid_by = 'club') from refunds where id not in (
+              select r.id from refunds r join payments p on p.purpose_id = r.purpose_id
+              where p.method = 'techpay' and p.status = 'approved')),
+  'refunds on receipt or cash bookings stay with the club');
+
+set role authenticated;
+select t_as('00000000-0000-0000-0000-00000000000b');
+select t_err($$select settle_refund((select id from refunds where paid_by = 'platform' and status = 'owed' limit 1), 'paid', 'GCash ref 999')$$,
+  'Match Day Pickle sends', 'a club cannot mark a platform refund as paid');
+insert into ids select 'rW', (select id from refunds where paid_by = 'platform' and status = 'owed' order by created_at limit 1);
+select settle_refund((select v from ids where k='rW'), 'waived', 'Player took club credit instead');
+select t_ok((select count(*) from club_ledger where refund_id = (select v from ids where k='rW') and kind = 'refund_waived') = 1,
+  'waiving a platform refund returns the money to the club');
+
+select t_err($$select set_payout_account((select v from ids where k='club'), 'bank', '', 'Sunrise Pickle Club', '001234567890', 'club')$$,
+  'Enter the bank', 'bank payouts need the bank name');
+select set_payout_account((select v from ids where k='club'), 'bank', 'BPI', 'Sunrise Pickle Club', '0012-3456-7890', 'club');
+select t_ok((club_payout_summary((select v from ids where k='club'))->'account'->>'last4') = '7890', 'club sees its account, masked');
+
+select t_as('00000000-0000-0000-0000-000000000001');
+select t_ok((select count(*) from club_ledger) = 0, 'players cannot see a club''s ledger');
+select t_ok((select count(*) from payout_accounts) = 0, 'players cannot see payout accounts');
+select t_err($$select * from run_payouts()$$, 'platform team', 'only the platform runs payouts');
+
+select t_as('00000000-0000-0000-0000-00000000000a');
+select t_ok((select count(*) from run_payouts() where payout_id is not null) = 0, 'nothing is paid out during the chargeback hold');
+reset role;
+-- a manual top-up so the balance is clearly positive, then let the hold pass
+insert into club_ledger (club_id, kind, amount, note) values ((select v from ids where k='club'), 'adjustment', 1000, 'test top-up');
+update club_ledger set available_at = now() - interval '1 minute';
+set role authenticated;
+select t_as('00000000-0000-0000-0000-00000000000a');
+select t_ok((select skipped from run_payouts() where club_id = (select v from ids where k='club')) = 'Payout account not verified',
+  'no money goes to an unverified account');
+select t_err($$select verify_payout_account((select v from ids where k='club'), '')$$, 'how you checked', 'verifying needs a note');
+select verify_payout_account((select v from ids where k='club'), 'Business permit seen; ₱1 test received');
+insert into ids select 'po1', (select payout_id from run_payouts() where club_id = (select v from ids where k='club'));
+select t_ok((select amount from payouts where id = (select v from ids where k='po1'))
+            = (select sum(amount) from club_ledger where payout_id = (select v from ids where k='po1')),
+  'the payout equals the ledger lines it covers');
+select t_ok((select count(*) from run_payouts() where payout_id is not null) = 0, 'a second run pays nothing twice');
+select mark_payout((select v from ids where k='po1'), 'failed', 'Account name mismatch');
+select t_ok((select count(*) from club_ledger where payout_id = (select v from ids where k='po1')) = 0,
+  'a failed payout releases its lines');
+insert into ids select 'po2', (select payout_id from run_payouts() where club_id = (select v from ids where k='club'));
+select t_err($$select mark_payout((select v from ids where k='po2'), 'sent', '')$$, 'reference', 'sent payouts need the transfer reference');
+select mark_payout((select v from ids where k='po2'), 'sent', 'INSTAPAY 20261006-0042');
+select t_ok((platform_money()->>'held_for_clubs')::numeric = 0, 'after the payout the platform holds nothing for the club');
+
+select t_as('00000000-0000-0000-0000-00000000000b');
+select t_ok((club_payout_summary((select v from ids where k='club'))->>'paid_out')::numeric
+            = (select amount from payouts where id = (select v from ids where k='po2')),
+  'the club sees what was paid out');
+select set_payout_account((select v from ids where k='club'), 'gcash', null, 'Olive Owner', '0917 123 4567', 'organizer');
+select t_ok((club_payout_summary((select v from ids where k='club'))->'account'->>'verified')::boolean = false,
+  'changing the account needs a fresh check');
+
+reset role;
+select t_ok((select count(*) from audit_log where action like 'payout%') >= 5, 'payouts leave a trail');
 select 'ALL TESTS PASSED' as result;

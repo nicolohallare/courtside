@@ -9,6 +9,7 @@ import Overview from '@/components/admin/Overview';
 import Sessions from '@/components/admin/Sessions';
 import Payments from '@/components/admin/Payments';
 import Refunds from '@/components/admin/Refunds';
+import Payouts from '@/components/admin/Payouts';
 import Courts from '@/components/admin/Courts';
 import Members from '@/components/admin/Members';
 import Settings from '@/components/admin/Settings';
@@ -16,7 +17,7 @@ import Activity from '@/components/admin/Activity';
 
 const TABS = [
   ['overview', 'Overview', false], ['sessions', 'Open play', false], ['payments', 'Payments', false],
-  ['refunds', 'Refunds', true], ['courts', 'Courts', true], ['members', 'Members', false],
+  ['refunds', 'Refunds', true], ['payouts', 'Payouts', true], ['courts', 'Courts', true], ['members', 'Members', false],
   ['settings', 'Settings', true], ['activity', 'Activity', true],
 ] as const;
 type Tab = (typeof TABS)[number][0];
@@ -62,6 +63,7 @@ export default function Admin() {
       {tab === 'sessions' && <Sessions {...props} />}
       {tab === 'payments' && <Payments {...props} />}
       {tab === 'refunds' && <Refunds {...props} />}
+      {tab === 'payouts' && <Payouts {...props} />}
       {tab === 'courts' && <Courts {...props} />}
       {tab === 'members' && <Members {...props} />}
       {tab === 'settings' && <Settings {...props} />}
