@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Match Day Pickle! Photos</title>
+<meta name="description" content="Match Day Pickle tournament photos. Take a selfie to find every shot you're in.">
+<meta name="theme-color" content="#0d1b2a">
+<link rel="icon" href="/logo.png">
+<meta property="og:title" content="Season 3 photos are up! Find yourself in 2,282 shots">
+<meta property="og:description" content="Take a selfie and we'll pull every photo you're in. Free to download.">
+<meta property="og:image" content="https://mdp-photos.netlify.app/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:url" content="https://mdp-photos.netlify.app/">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="top">
+  <a href="#/" class="brand" aria-label="Match Day Pickle Photos home">
+    <img src="/logo.png" alt="" width="40" height="44">
+    <span><b>Match Day Pickle!</b><small>Photos</small></span>
+  </a>
+</header>
+
+<main id="app">
+
+<!-- HOME -->
+<section data-view="home" class="view">
+  <div class="hero">
+    <div class="eyebrow pinkc">Season 3 · Spin Off Edition · Oct 10–11 · The Zone</div>
+    <h1>Relive your<br><em>match day.</em></h1>
+    <p class="muted">2,282 photos from two days of rallies and podiums. Snap a selfie to find the shots you're in.</p>
+  </div>
+  <a href="#/find" class="cta-find">
+    <span class="ic"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></span>
+    <span class="t"><b>Find photos of me</b><small>Takes a second. Nothing is saved.</small></span>
+    <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+  </a>
+  <a href="https://www.facebook.com/share/v/1CcrprqX8Y/" target="_blank" rel="noopener" class="video-card" id="videoCard">
+    <div class="vthumb" id="vthumb"><span class="play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span></div>
+    <div class="vmeta"><span class="eyebrow gold">Watch</span><b>Season 3 highlights</b><small class="muted">Opens on Facebook</small></div>
+  </a>
+
+
+  <h2 class="eyebrow">Photo album</h2>
+  <a href="#/album" class="album-card" id="albumCard">
+    <div class="mosaic" id="mosaic"></div>
+    <div class="album-meta">
+      <div class="datebox"><span>OCT</span><b>10–11</b></div>
+      <div><div class="title" id="albumTitle">Season 3: Spin Off Edition</div><div class="green" id="albumCount">Loading…</div></div>
+    </div>
+  </a>
+
+  <section class="champs" aria-labelledby="champsH">
+    <h2 id="champsH" class="sec-title">Season 3 <em>champions</em></h2>
+    <div class="tabs small" role="group" aria-label="Champions by day" id="champTabs"><button type="button" data-d="1" aria-pressed="true">Day 1 · Sat</button><button type="button" data-d="2" aria-pressed="false">Day 2 · Sun</button></div>
+    <div id="champList" class="champ-list"></div>
+  </section>
+  <div class="sponsors">
+    <div class="eyebrow">Thank you to our partners</div>
+    <div class="sp-row" id="sponsors"></div>
+  </div>
+
+  <div class="card">
+    <div class="eyebrow gold">Stay in the loop</div>
+    <div class="card-title">Get notified when photos drop</div>
+    <p class="muted">New photos, open plays and tournaments are announced first in the MDP Viber community.</p>
+    <a class="btn viber" id="viberLink" href="https://www.facebook.com/profile.php?id=61581138933961" target="_blank" rel="noopener">Join the community</a>
+  </div>
+
+  <div class="card club">
+    <div class="eyebrow greenc">For clubs</div>
+    <div class="card-title">Run open play for your club?</div>
+    <p class="muted">Official DUPR partner. Players pay upfront through a licensed payment gateway, and results go straight to DUPR.</p>
+    <a class="btn outline" href="#/club">Get early access</a>
+  </div>
+  <footer class="foot"><a href="https://matchdaypickle.com">matchdaypickle.com</a> · <a href="#/remove">Photo removal</a></footer>
+</section>
+
+<!-- ALBUM -->
+<section data-view="album" class="view" hidden>
+  <div class="bar"><a href="#/" class="back">‹ All photos</a></div>
+  <div class="hero sm">
+    <h1>Season 3<br><em>Spin Off Edition</em></h1>
+    <p class="muted" id="albumSub"></p>
+  </div>
+  <div class="tabs" role="group" aria-label="Day" id="dayTabs"></div>
+  <div class="chips" role="group" aria-label="Moment" id="catChips"></div>
+  <div class="grid" id="grid"></div>
+  <div id="gridMore" class="more"></div>
+  <a href="#/find" class="float-find">Find me in this album</a>
+</section>
+
+<!-- FIND -->
+<section data-view="find" class="view" hidden>
+  <div class="bar"><a href="#/album" class="back">‹ Back</a></div>
+  <div class="hero sm">
+    <h1>Find photos<br><em>of me.</em></h1>
+    <p class="muted" id="findHint">Line your face up in the circle, in good light, no sunglasses.</p>
+  </div>
+  <div class="oval-wrap">
+    <div class="oval"><video id="cam" playsinline muted></video><div class="oval-ph" id="ovalPh"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="9" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg></div></div>
+  </div>
+  <p class="status" id="findStatus" role="status" aria-live="polite"></p>
+  <ul class="promises">
+    <li>Your selfie never leaves your phone and nothing is saved.</li>
+    <li>Live camera only, so you can only search for yourself.</li>
+  </ul>
+  <div class="find-actions">
+    <button class="btn big" id="camBtn" type="button">Turn on camera</button>
+    <a href="#/remove" class="small-link">Want a photo of you taken down? Request removal</a>
+  </div>
+</section>
+
+<!-- RESULTS -->
+<section data-view="results" class="view" hidden>
+  <div class="bar"><a href="#/album" class="back">‹ Back to album</a></div>
+  <div class="hero sm">
+    <span class="pill">Matched</span>
+    <h1 id="resTitle">You're in<br><em>0 photos.</em></h1>
+    <p class="muted">Season 3: Spin Off Edition · Oct 10–11, 2026</p>
+    <p class="muted tiny">Face matching can miss shots or include look-alikes. Tap ✕ on a photo that isn't you.</p>
+  </div>
+  <div class="grid two" id="resGrid"></div>
+  <div class="res-actions">
+    <button class="btn big" id="dlAll" type="button">Download all</button>
+    <a class="btn ghost" href="#/find">Try again</a>
+  </div>
+  <div class="after">
+    <a href="https://www.facebook.com/share/v/1CcrprqX8Y/" target="_blank" rel="noopener" class="video-card" >
+    <div class="vthumb" data-vthumb><span class="play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></span></div>
+    <div class="vmeta"><span class="eyebrow gold">Watch</span><b>Season 3 highlights</b><small class="muted">Opens on Facebook</small></div>
+  </a>
+    <a class="btn viber wide" data-viber href="#">Join the MDP Viber community</a>
+  </div>
+</section>
+
+<!-- CLUB FORM -->
+<section data-view="club" class="view" hidden>
+  <div class="bar"><a href="#/" class="back">‹ Back</a></div>
+  <div class="hero sm">
+    <div class="eyebrow greenc">For clubs</div>
+    <h1>Bring your open play<br><em>to MDP.</em></h1>
+    <p class="muted">The app Match Day Pickle runs its own open plays on. Now opening to a few partner clubs.</p>
+  </div>
+  <div class="dupr-badge"><span class="db-k">Official</span><span class="db-v">DUPR Partner</span></div>
+  <ul class="perks">
+    <li><b>DUPR results, automatic</b><span>Match Day Pickle is an official DUPR partner. Open play scores sync to players' DUPR ratings, no CSV uploads.</span></li>
+    <li><b>Paid upfront, no screenshots</b><span>Players pay by GCash, Maya, QR Ph or card through a BSP-licensed payment gateway. Slots are only confirmed once paid, and payouts go straight to your club.</span></li>
+    <li><b>Player behavior on record</b><span>No-shows, late cancellations and DUPR are on each player's profile, so you can set who gets in.</span></li>
+    <li><b>Venue confirmed</b><span>Every session lists a confirmed venue, court count and time, so players never show up to the wrong place.</span></li>
+    <li><b>Balanced courts</b><span>Sort sessions by skill and gender, and keep courts competitive with DUPR-based stacking.</span></li>
+    <li><b>Your club, your community</b><span>Your open plays sit next to MDP tournaments, in front of the whole MDP player community.</span></li>
+  </ul>
+  <h2 class="sec-title">Get <em>early access</em></h2>
+  <form name="club-interest" method="POST" data-netlify="true" netlify-honeypot="bot-field" class="form" id="clubForm">
+    <input type="hidden" name="form-name" value="club-interest">
+    <p hidden><label>Leave empty <input name="bot-field"></label></p>
+    <label>Club name<input name="club" required placeholder="e.g. Sunrise Picklers"></label>
+    <label>Contact person<input name="name" required placeholder="Your name"></label>
+    <label>Mobile or email<input name="contact" required placeholder="0917 000 0000"></label>
+    <label>Where you play<input name="venue" placeholder="Venue or area"></label>
+    <fieldset><legend>How you run open play now</legend>
+      <div class="seg"><label><input type="radio" name="current_tool" value="Reclub" checked><span>Reclub</span></label><label><input type="radio" name="current_tool" value="Viber/GC"><span>Viber/GC</span></label><label><input type="radio" name="current_tool" value="Other"><span>Other</span></label></div>
+    </fieldset>
+    <fieldset><legend>Players per week, roughly</legend>
+      <div class="seg"><label><input type="radio" name="size" value="Under 20"><span>Under 20</span></label><label><input type="radio" name="size" value="20-50" checked><span>20–50</span></label><label><input type="radio" name="size" value="50+"><span>50+</span></label></div>
+    </fieldset>
+    <button class="btn big green" type="submit">Request early access</button>
+    <p class="muted tiny center">No commitment. We only use this to contact you about the app.</p>
+  </form>
+  <div class="thanks" id="clubThanks" hidden><h2>Thanks!</h2><p class="muted">We'll reach out when we open to new clubs.</p><a class="btn" href="#/">Back to photos</a></div>
+</section>
+
+<!-- REMOVAL FORM -->
+<section data-view="remove" class="view" hidden>
+  <div class="bar"><a href="#/" class="back">‹ Back</a></div>
+  <div class="hero sm">
+    <h1>Photo<br><em>removal.</em></h1>
+    <p class="muted">Want a photo of you taken down? Tell us which one and we'll remove it.</p>
+  </div>
+  <form name="photo-removal" method="POST" data-netlify="true" netlify-honeypot="bot-field" class="form" id="removeForm">
+    <input type="hidden" name="form-name" value="photo-removal">
+    <p hidden><label>Leave empty <input name="bot-field"></label></p>
+    <label>Your name<input name="name" required></label>
+    <label>Mobile or email<input name="contact" required></label>
+    <label>Which photos<input name="photos" id="removePhotos" placeholder="Photo numbers, or describe them"></label>
+    <label>Anything else<textarea name="message" rows="3"></textarea></label>
+    <button class="btn big" type="submit">Send request</button>
+  </form>
+  <div class="thanks" id="removeThanks" hidden><h2>Request sent.</h2><p class="muted">We'll take care of it and get back to you.</p><a class="btn" href="#/">Back to photos</a></div>
+</section>
+</main>
+
+<!-- LIGHTBOX -->
+<div class="lb" id="lb" hidden role="dialog" aria-modal="true" aria-label="Photo">
+  <button class="lb-x" id="lbClose" type="button" aria-label="Close">✕</button>
+  <button class="lb-nav prev" id="lbPrev" type="button" aria-label="Previous photo">‹</button>
+  <img id="lbImg" alt="">
+  <button class="lb-nav next" id="lbNext" type="button" aria-label="Next photo">›</button>
+  <div class="lb-bar"><span id="lbNum" class="muted"></span><button class="btn" id="lbDl" type="button">Download</button></div>
+</div>
+
+<script src="/config.js"></script>
+<script type="module" src="/app.js"></script>
+</body>
+</html>

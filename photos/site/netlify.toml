@@ -1,0 +1,18 @@
+[[headers]]
+  for = "/data/*"
+  [headers.values]
+    Cache-Control = "public, max-age=300"
+
+[[redirects]]
+  from = "/img/*"
+  to = "https://pub-fa5d7df3a2374c958ffcc98d382da78a.r2.dev/:splat"
+  status = 200
+  force = true
+  [redirects.headers]
+    X-From = "Netlify"
+
+[[headers]]
+  for = "/img/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+    Netlify-CDN-Cache-Control = "public, max-age=31536000, immutable"
