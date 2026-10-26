@@ -17,3 +17,10 @@ export function fmtClock(t: string | null | undefined): string {
 }
 export const manilaToday = () => new Date().toLocaleDateString('en-CA', { timeZone: TZ });
 export const rating = (n: number | string | null | undefined) => (n === null || n === undefined || n === '' ? 'NR' : Number(n).toFixed(2));
+
+const MONS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+/** Date parts for the date block: month and day number, plus weekend flag. */
+export function dateParts(d: string) {
+  const x = new Date(d + 'T12:00:00');
+  return { mon: MONS[x.getMonth()], day: x.getDate(), weekend: x.getDay() === 0 || x.getDay() === 6, tab: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][x.getDay()] + ' ' + (x.getMonth() + 1) + '/' + x.getDate() };
+}
