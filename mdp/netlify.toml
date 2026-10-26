@@ -1,0 +1,4 @@
+# Netlify site for the new MDP app: set the site's base directory to "mdp".
+[build]
+  command = "npm ci && npm run build"
+  publish = "out"
