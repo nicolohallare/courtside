@@ -20,7 +20,7 @@ export function eventDates(t: Tournament) {
   return `${m(a)} ${a.getDate()}`;
 }
 
-export const levelName = (l: string | null | undefined) => (l === 'PREMIUM_L1' ? 'Premium' : l === 'BASIC_L1' ? 'Basic' : 'Not allowed');
+export const levelName = (l: string | null | undefined) => (l === 'PREMIUM_L1' ? 'DUPR+ (Premium)' : l === 'BASIC_L1' ? 'Standard account' : 'Not allowed by DUPR');
 
 /** Who a division is for, in words. */
 export function divisionWho(d: Division) {

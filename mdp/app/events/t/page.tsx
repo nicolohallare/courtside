@@ -96,7 +96,7 @@ export default function EventPage() {
                 <>
                   <div className="dr"><span className="grow" style={{ flex: 1 }}>Account</span><span className="ok">{me.dupr_id}</span></div>
                   <div className="dr"><span style={{ flex: 1 }}>Doubles rating</span><b className="num">{rating(me.rating)}</b></div>
-                  <div className="dr"><span style={{ flex: 1 }}>Tournament access</span><span className={me.level ? 'ok' : 'no'}>{levelName(me.level)}</span></div>
+                  <div className="dr"><span style={{ flex: 1 }}>Tournament access (from DUPR)</span><span className={me.level ? 'ok' : 'no'}>{levelName(me.level)}</span></div>
                 </>
               ) : <div className="dr"><span style={{ flex: 1 }}>Connect DUPR to register. Teams are placed by DUPR rating.</span><Link className="btn sm dupr inline" href="/me/">Connect</Link></div>}
             </div>
@@ -113,7 +113,7 @@ export default function EventPage() {
                     <div>
                       <b>{d.name}</b>
                       {f === 'fits' && <span className="tag ok" style={{ marginLeft: 6 }}>Your level</span>}
-                      {d.requires === 'PREMIUM_L1' && <span style={{ marginLeft: 6 }}><DuprTag label="Premium" dark /></span>}
+                      {d.requires === 'PREMIUM_L1' && <span style={{ marginLeft: 6 }}><DuprTag label="+ only" dark /></span>}
                       <div className="small muted">{divisionWho(d)}</div>
                       {left != null && <div className="small muted">{left === 0 ? 'Full' : `${left} of ${d.spots} teams left`}</div>}
                     </div>
@@ -209,7 +209,7 @@ function RegisterSheet({ t, onClose, onDone }: { t: Tournament; onClose: () => v
             return (
               <label key={x.name} className={off ? 'off' : ''}>
                 <input type="radio" name="div" disabled={off} checked={div === x.name} onChange={() => setDiv(x.name)} />
-                <span><b>{x.name}</b>{x.requires === 'PREMIUM_L1' && <span style={{ marginLeft: 6 }}><DuprTag label="Premium" dark /></span>}<br /><span className="small muted">{full ? 'Full' : prem ? 'Needs a DUPR Premium account' : ff === 'over' ? 'Your team rating is above this division' : ff === 'up' ? 'Playing up' : divisionWho(x)}</span></span>
+                <span><b>{x.name}</b>{x.requires === 'PREMIUM_L1' && <span style={{ marginLeft: 6 }}><DuprTag label="+ only" dark /></span>}<br /><span className="small muted">{full ? 'Full' : prem ? 'Needs a DUPR+ membership' : ff === 'over' ? 'Your team rating is above this division' : ff === 'up' ? 'Playing up' : divisionWho(x)}</span></span>
                 <span className="num" style={{ fontWeight: 800 }}>{peso(already && x.second_price != null ? x.second_price : x.price)}</span>
               </label>
             );
@@ -219,7 +219,7 @@ function RegisterSheet({ t, onClose, onDone }: { t: Tournament; onClose: () => v
 
       {partner && (
         <div className="dupr-panel" style={{ marginBottom: 14 }}>
-          <div className="dh"><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><DuprLogo h={12} light />check</span><span>{needPremium ? 'Needs Premium' : 'Needs Basic'}</span></div>
+          <div className="dh"><span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><DuprLogo h={12} light />check</span><span>{needPremium ? 'Needs DUPR+' : 'Any DUPR account'}</span></div>
           {row('You', me.connected && okLevel(me.level), me.connected ? `${rating(me.rating)}, ${levelName(me.level)}` : 'Not connected')}
           {row(partner.name, partner.connected && okLevel(partner.level), partner.connected ? `${rating(partner.rating)}, ${levelName(partner.level)}` : 'Not connected')}
           {d && row('Team rating (higher of you two)', f !== 'over', team ? `${rating(team)}${f === 'up' ? ', playing up' : f === 'over' ? ', too high' : ''}` : '—')}

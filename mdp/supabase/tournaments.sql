@@ -132,9 +132,9 @@ begin
   if not coalesce((b->>'connected')::boolean, false) then raise exception '% hasn''t connected DUPR yet. Ask them to open the app and connect it in Me.', pn; end if;
   need := coalesce(d->>'requires', 'BASIC_L1');
   if a->>'level' is null or (need = 'PREMIUM_L1' and a->>'level' <> 'PREMIUM_L1') then
-    raise exception 'DUPR says your account can''t enter this division. It needs DUPR %.', case need when 'PREMIUM_L1' then 'Premium' else 'Basic (a verified account)' end; end if;
+    raise exception 'DUPR says your account can''t enter this division. It needs %.', case need when 'PREMIUM_L1' then 'a DUPR+ membership' else 'an active DUPR account' end; end if;
   if b->>'level' is null or (need = 'PREMIUM_L1' and b->>'level' <> 'PREMIUM_L1') then
-    raise exception 'DUPR says %''s account can''t enter this division. It needs DUPR %.', pn, case need when 'PREMIUM_L1' then 'Premium' else 'Basic (a verified account)' end; end if;
+    raise exception 'DUPR says %''s account can''t enter this division. It needs %.', pn, case need when 'PREMIUM_L1' then 'a DUPR+ membership' else 'an active DUPR account' end; end if;
 
   -- Men's, women's and mixed divisions (checked when both genders are on the profiles).
   if d->>'gender' in ('M', 'F', 'X') then
