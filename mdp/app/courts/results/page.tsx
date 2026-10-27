@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { DuprLogo, DuprTag } from '@/components/Dupr';
 import { useCallback, useEffect, useState } from 'react';
 import { fn, rpc } from '@/lib/supabase';
 import { useMe } from '@/lib/me';
@@ -78,7 +79,7 @@ export default function Results() {
   return (
     <>
       <Band back={{ href: '/courts/', label: 'Courts' }}>
-        <h1 className="h1" style={{ marginTop: 4 }}>Results for DUPR</h1>
+        <h1 className="h1" style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 12 }}>Results for <DuprLogo h={28} light /></h1>
         <p className="sub" style={{ marginTop: 6 }}>Check the scores, then send them to DUPR under the Match Day Pickle club. Ratings update by themselves once DUPR processes them.</p>
         {list && list.length > 1 && (
           <div className="chips" style={{ padding: '12px 0 0' }}>
@@ -121,7 +122,7 @@ export default function Results() {
             })}
           </div>
           <div className="section stack">
-            <button className="btn pink" disabled={busy || ready_.length === 0} onClick={send}><Icon name="upload" />{busy ? 'Sending to DUPR…' : ready_.length ? `Send ${ready_.length} game${ready_.length === 1 ? '' : 's'} to DUPR` : 'Everything is on DUPR'}</button>
+            <button className="btn dupr" disabled={busy || ready_.length === 0} onClick={send}><Icon name="upload" />{busy ? 'Sending to DUPR…' : ready_.length ? `Send ${ready_.length} game${ready_.length === 1 ? '' : 's'} to DUPR` : 'Everything is on DUPR'}</button>
             <p className="small muted" style={{ textAlign: 'center' }}>Only club directors and organizers on DUPR can send. Games with a player who hasn&apos;t connected DUPR are held back and can be sent later.</p>
           </div>
         </>

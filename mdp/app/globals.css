@@ -335,3 +335,23 @@ textarea.input { min-height: 90px; resize: vertical; }
   html, body { background: #e9e0d0; }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+/* ── DUPR branding ─────────────────────────────────── */
+:root { --dupr: #001762; }
+.dupr-logo { display: inline-block; vertical-align: middle; }
+.dupr-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; padding: 4px 9px 4px 8px; border-radius: 99px; background: #e8ecf7; color: var(--dupr); white-space: nowrap; }
+.dupr-tag.dark { background: var(--dupr); color: #fff; }
+.btn.dupr { background: var(--dupr); color: #fff; }
+.btn.dupr:hover:not(:disabled) { background: #0a2480; }
+.dupr-panel { border-radius: var(--r); overflow: hidden; border: 1px solid #d5dcef; background: #fff; }
+.dupr-panel .dh { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; background: var(--dupr); color: #fff; font-size: 13px; font-weight: 700; }
+.dupr-panel .dr { display: flex; align-items: center; gap: 12px; padding: 11px 14px; font-size: 14px; }
+.dupr-panel .dr + .dr { border-top: 1px solid #e3e8f4; }
+.dupr-panel .ok { color: var(--court); font-weight: 700; }
+.dupr-panel .no { color: var(--pink-d); font-weight: 700; }
+.powered { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 12px; color: var(--muted); padding: 18px 0 4px; }
+.shield .dupr-logo { margin-top: 4px; }
+.radio-list > label { display: grid; grid-template-columns: 22px 1fr auto; gap: 4px 12px; align-items: start; padding: 13px 14px; cursor: pointer; }
+.radio-list > label + label { border-top: 1px solid var(--line); }
+.radio-list input { width: 20px; height: 20px; accent-color: var(--pink); margin-top: 2px; }
+.radio-list > label.off { opacity: .5; cursor: not-allowed; }

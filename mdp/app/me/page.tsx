@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { DuprLogo, DuprTag } from '@/components/Dupr';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { fn, sb } from '@/lib/supabase';
@@ -62,7 +63,7 @@ export default function Me() {
     <>
       <Band>
         <div className="dupr-card" style={{ marginTop: 12 }}>
-          <div className={'shield' + (d ? '' : ' nr')}><span className="num">{d ? Number(d).toFixed(2) : 'NR'}</span><small>Doubles</small></div>
+          <div className={'shield' + (d ? '' : ' nr')}><span className="num">{d ? Number(d).toFixed(2) : 'NR'}</span><DuprLogo h={11} light={!d} /><small>Doubles</small></div>
           <div style={{ minWidth: 0 }}>
             <h1 className="h2" style={{ color: '#fff' }}>{profile?.full_name ?? '…'}</h1>
             <p className="sub">{TIER[profile?.access_tier ?? ''] ?? 'Member'}{profile?.is_varsity ? ', Varsity' : ''}{profile?.super_admin ? ', super admin' : profile?.is_admin ? ', admin' : ''}</p>
@@ -72,7 +73,7 @@ export default function Me() {
       </Band>
 
       <div className="section">
-        <div className="section-head"><span className="h3">DUPR</span>{dupr?.env && dupr.env !== 'prod' && <span className="tag dupr">DUPR test system</span>}</div>
+        <div className="section-head"><DuprLogo h={18} />{dupr?.env && dupr.env !== 'prod' && <span className="tag dupr">DUPR test system</span>}</div>
         {!dupr ? <Loading rows={1} /> : dupr.connected ? (
           <div className="card stack">
             <div className="between"><div><b>Connected</b><div className="small muted">{dupr.name ? `${dupr.name}, ` : ''}DUPR ID {dupr.dupr_id}</div></div><button className="btn sm ghost inline" onClick={() => setConfirmOff(true)}>Disconnect</button></div>
@@ -82,7 +83,7 @@ export default function Me() {
         ) : (
           <div className="card stack">
             <p className="small">Connect your DUPR account to join DUPR nights and have your games sent to DUPR. You log in on DUPR&apos;s own page; MDP never sees your password.</p>
-            <button className="btn navy" onClick={openSso}><Icon name="link" />Connect DUPR</button>
+            <button className="btn dupr" onClick={openSso}>Connect with <DuprLogo h={14} light /></button>
           </div>
         )}
       </div>
@@ -99,8 +100,10 @@ export default function Me() {
         </div>
       </div>
 
+      <div className="powered">Ratings powered by <DuprLogo h={11} /></div>
+
       {sso && (
-        <Sheet title="Connect DUPR" onClose={() => setSso(null)}>
+        <Sheet title="Connect your DUPR account" onClose={() => setSso(null)}>
           <p className="sub" style={{ marginBottom: 10 }}>Log in to DUPR and allow Match Day Pickle to see your DUPR ID and rating.</p>
           <iframe src={sso} title="DUPR login" allow="payment" style={{ width: '100%', height: 540, border: '1px solid var(--line-2)', borderRadius: 12, background: '#fff' }} />
           {saving && <p className="small" style={{ marginTop: 8 }}>{saving}</p>}

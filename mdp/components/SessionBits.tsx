@@ -1,5 +1,6 @@
 'use client';
 import { useRouter } from 'next/navigation';
+import { DuprLogo, DuprTag } from '@/components/Dupr';
 import { peso } from '@/lib/format';
 import { activeReg, isDuprNight, opensAt, spotsLeft, type Reg, type Sess } from '@/lib/sessions';
 import { profileProblem, type Profile } from '@/lib/me';
@@ -7,7 +8,7 @@ import { profileProblem, type Profile } from '@/lib/me';
 export function SessionTags({ s, host, courts = true }: { s: Sess; host?: string; courts?: boolean }) {
   return (
     <div className="tags">
-      {isDuprNight(s) && <span className="tag dupr">DUPR night</span>}
+      {isDuprNight(s) && <DuprTag label="Night" />}
       {s.organizer_id && <span className="tag host">Hosted by {host ?? 'a partner'}</span>}
       {s.requires_approval && <span className="tag">Host approves players</span>}
       {courts && !!s.courts && <span className="tag">{s.courts} court{s.courts === 1 ? '' : 's'}</span>}

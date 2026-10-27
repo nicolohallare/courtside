@@ -8,19 +8,20 @@ import { isDuprNight, loadSessions, type Sess } from '@/lib/sessions';
 import { Band, Loading } from '@/components/Shell';
 import { Spots } from '@/components/SessionBits';
 import { eventDates, type Tournament } from '@/lib/events';
+import { DuprTag } from '@/components/Dupr';
 
 export default function Events() {
   const { userId, ready } = useMe();
   const [t, setT] = useState<Tournament | null | undefined>(undefined);
   const [nights, setNights] = useState<Sess[] | null>(null);
   useEffect(() => { loadSessions().then((l) => setNights(l.filter(isDuprNight))).catch(() => setNights([])); }, []);
-  useEffect(() => { if (ready) (userId ? rpc<Tournament | null>('current_tournament') : Promise.resolve(null)).then(setT).catch(() => setT(null)); }, [ready, userId]);
+  useEffect(() => { if (ready) (userId ? rpc<Tournament | null>('tournament_view', { p_tournament: null }) : Promise.resolve(null)).then(setT).catch(() => setT(null)); }, [ready, userId]);
 
   return (
     <>
       <Band>
         <h1 className="h1" style={{ marginTop: 10 }}>Events</h1>
-        <p className="sub" style={{ marginTop: 6 }}>Match Day Pickle tournaments and DUPR nights. Every game is rated.</p>
+        <p className="sub" style={{ marginTop: 6 }}>Match Day Pickle tournaments and DUPR nights. Every game counts for your DUPR rating.</p>
       </Band>
 
       <div className="section">
@@ -34,6 +35,10 @@ export default function Events() {
               <div className="h2">{t.name}</div>
               {t.tagline && <p className="sub">{t.tagline}</p>}
               <p className="sub">{[t.venue, t.city].filter(Boolean).join(', ')}</p>
+              <div className="tags" style={{ marginTop: 10 }}>
+                <DuprTag label="Rated" dark />
+                {t.entries?.length ? <span className="tag ok">{t.entries.length === 1 ? `You're in ${t.entries[0].division}` : `You're in ${t.entries.length} divisions`}</span> : t.open ? <span className="tag host">Registration open</span> : null}
+              </div>
             </div>
           </Link>
         ) : <div className="card sub">{userId ? 'The next tournament hasn\'t been announced yet. You\'ll get a notification when registration opens.' : <><Link className="link" href="/login/?next=/events/">Sign in</Link> to see upcoming tournaments.</>}</div>}

@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { DuprLogo, DuprTag } from '@/components/Dupr';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { rpc } from '@/lib/supabase';
 import { useMe } from '@/lib/me';
@@ -117,7 +118,7 @@ export default function Courts() {
         )}
         <div className="between" style={{ marginTop: 10 }}>
           <div>
-            <div className="tags">{s?.is_dupr ? <span className="tag dupr">DUPR night</span> : <span className="tag">Open play</span>}</div>
+            <div className="tags">{s?.is_dupr ? <DuprTag label="Night" /> : <span className="tag">Open play</span>}</div>
             <h1 className="h2" style={{ color: '#fff', marginTop: 6 }}>{s?.label ?? list.find((x) => x.id === sid)?.label}</h1>
             {s && <p className="sub">{fmtClock(s.time_start)} to {fmtClock(s.time_end)}, {s.venue}</p>}
           </div>
@@ -244,7 +245,7 @@ export default function Courts() {
           </div>
 
           <div className="section">
-            <div className="section-head"><span className="h3">Tonight&apos;s scores</span>{s?.is_dupr && <span className="tag dupr">Sent to DUPR after review</span>}</div>
+            <div className="section-head"><span className="h3">Tonight&apos;s scores</span>{s?.is_dupr && <DuprTag label="Sent after review" />}</div>
             {b.games.length === 0 ? <div className="card sub">{s?.is_dupr ? 'Scores show here as games finish.' : 'Open play scores are optional. Games ended with a winner only don\'t show here.'}</div> : (
               <div className="list" style={{ display: 'block' }}>
                 {b.games.slice(0, 20).map((g) => {
@@ -259,7 +260,7 @@ export default function Courts() {
                 })}
               </div>
             )}
-            {s?.is_admin && s.is_dupr && <Link className="btn navy" style={{ marginTop: 12 }} href={'/courts/results/?s=' + sid}><Icon name="upload" />Review and send to DUPR</Link>}
+            {s?.is_admin && s.is_dupr && <Link className="btn dupr" style={{ marginTop: 12 }} href={'/courts/results/?s=' + sid}>Review and send to <DuprLogo h={13} light /></Link>}
           </div>
         </>
       )}

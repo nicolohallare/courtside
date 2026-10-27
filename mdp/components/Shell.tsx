@@ -11,6 +11,15 @@ import { registerSw } from '@/lib/push';
 export function Header() {
   const { profile, userId, ready, wallet } = useMe();
   useEffect(() => { registerSw(); }, []);
+  // Back from TechPay: say what happened and return to where the payment started.
+  useEffect(() => {
+    const h = location.hash;
+    if (h !== '#topup-done' && h !== '#topup-failed') return;
+    let back = '/bookings/#wallet';
+    try { back = sessionStorage.getItem('mdp-after-topup') || back; sessionStorage.removeItem('mdp-after-topup'); } catch { /* */ }
+    sessionStorage.setItem('mdp-topup-result', h === '#topup-done' ? 'ok' : 'failed');
+    location.replace(back);
+  }, []);
   const initials = (profile?.full_name ?? '').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
   return (
     <>
@@ -61,6 +70,12 @@ const ToastCtx = createContext<(m: string, bad?: boolean) => void>(() => {});
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [t, setT] = useState<{ m: string; bad: boolean; k: number } | null>(null);
   const show = useCallback((m: string, bad = false) => setT({ m, bad, k: Date.now() }), []);
+  useEffect(() => {
+    let r: string | null = null;
+    try { r = sessionStorage.getItem('mdp-topup-result'); sessionStorage.removeItem('mdp-topup-result'); } catch { /* */ }
+    if (r === 'ok') show('Payment received. Your wallet updates within a minute, then you can pay.');
+    if (r === 'failed') show('The TechPay payment didn\'t go through. Nothing was charged.', true);
+  }, [show]);
   useEffect(() => { if (!t) return; const id = setTimeout(() => setT(null), t.bad ? 6000 : 3500); return () => clearTimeout(id); }, [t]);
   return (
     <ToastCtx.Provider value={show}>
