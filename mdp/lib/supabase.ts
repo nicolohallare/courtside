@@ -2,11 +2,14 @@
 import { createClient, type Session, type SupabaseClient } from '@supabase/supabase-js';
 import { useEffect, useState } from 'react';
 
-// The MDP database: same project, same member accounts as the current app.
+// Until DUPR approves, this app runs on a separate DEMO copy of the MDP database
+// (Supabase branch "dupr-demo"): same structure, sample members, no link to the live app.
+// Going live = point these at the main MDP project (uhfsyzsgqcrcguqvgnnb).
 // The anon key is public by design; every table is protected by row-level security.
-export const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://uhfsyzsgqcrcguqvgnnb.supabase.co';
+export const SB_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://tzebodcfdvowrnhvfdij.supabase.co';
 const SB_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ??
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVoZnN5enNncWNyY2d1cXZnbm5iIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4MjcyNzIsImV4cCI6MjA5NTQwMzI3Mn0.Nb-w85Q62UERKG548beQheeIYIanNO6qV3ZTnP6lu6E';
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR6ZWJvZGNmZHZvd3JuaHZmZGlqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMwNjEwMjMsImV4cCI6MjEwODYzNzAyM30.wHIAf92O39cIEOA7S5Ht7ffolo7atF5Ckx6xQadJl7Y';
+export const IS_DEMO = SB_URL.includes('tzebodcfdvowrnhvfdij');
 
 let client: SupabaseClient | null = null;
 export function sb(): SupabaseClient {

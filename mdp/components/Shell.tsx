@@ -3,13 +3,14 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
 import { useMe } from '@/lib/me';
+import { IS_DEMO } from '@/lib/supabase';
 
 export function Header() {
   const { profile, userId, ready } = useMe();
   const first = (profile?.full_name ?? '').split(' ')[0];
   return (
     <>
-      <div className="preview-strip">Preview of the new Match Day Pickle app</div>
+      <div className="preview-strip">{IS_DEMO ? 'Demo · sample members and sessions, not the live app' : 'Preview of the new Match Day Pickle app'}</div>
       <div className="hdr">
         <div className="hdr-inner">
           <Link href="/" className="brand">
