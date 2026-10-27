@@ -270,7 +270,7 @@ export default function Courts() {
         onWinner={(w) => call('board_finish_quick', { p_live: sheet.live.id, p_winner: w }, `Court ${sheet.live.court} is free`)}
         onCancel={() => call('dupr_board_cancel', { p_live: sheet.live.id }, 'Game cancelled. Players are back in line.')} />}
 
-      {sheet?.k === 'pick' && b && <PickSheet court={sheet.court} initial={sheet.seats} players={b.players.filter((p) => p.status === 'here')} busy={busy} onClose={() => setSheet(null)}
+      {sheet?.k === 'pick' && b && <PickSheet court={sheet.court} initial={sheet.seats} players={b.players.filter((p) => p.status === 'here')} busy={busy} dupr={b.session.is_dupr} onClose={() => setSheet(null)}
         onStart={(x) => call('dupr_board_start', { p_session: sid, p_court: sheet.court, p_a1: x[0], p_a2: x[1], p_b1: x[2], p_b2: x[3] }, `Court ${sheet.court} started`)} />}
 
       {sheet?.k === 'partner' && b && me && (
@@ -356,7 +356,7 @@ function FinishSheet({ live, dupr, nameOf, busy, onClose, onScore, onWinner, onC
   );
 }
 
-function PickSheet({ court, initial, players, busy, onClose, onStart }: { court: number; initial: string[]; players: BPlayer[]; busy: boolean; onClose: () => void; onStart: (x: string[]) => void }) {
+function PickSheet({ court, initial, players, busy, dupr, onClose, onStart }: { court: number; initial: string[]; players: BPlayer[]; busy: boolean; dupr: boolean; onClose: () => void; onStart: (x: string[]) => void }) {
   const [sel, setSel] = useState<string[]>(initial);
   const toggle = (id: string) => setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : s.length < 4 ? [...s, id] : s));
   const name = (id: string) => players.find((p) => p.id === id)?.name ?? '?';
@@ -372,7 +372,7 @@ function PickSheet({ court, initial, players, busy, onClose, onStart }: { court:
           return (
             <button key={p.id} style={{ width: '100%', textAlign: 'left', background: i >= 0 ? 'rgba(224,53,122,.07)' : undefined }} onClick={() => toggle(p.id)}>
               <span className="avatar" style={{ width: 30, height: 30, fontSize: 12, background: i >= 0 ? 'var(--pink)' : 'rgba(13,27,42,.08)', color: i >= 0 ? '#fff' : 'var(--muted)' }}>{i >= 0 ? i + 1 : ''}</span>
-              <span className="grow">{p.name}<br /><span className="small muted">{levelName(p.level)}, {stackName(p.stack)}</span></span>
+              <span className="grow">{p.name}<br /><span className="small muted">{levelName(p.level)}, {stackName(p.stack)}{dupr && !p.linked ? '. Not on DUPR' : ''}</span></span>
               {p.rating ? <span className="rating">{Number(p.rating).toFixed(2)}</span> : null}
             </button>
           );

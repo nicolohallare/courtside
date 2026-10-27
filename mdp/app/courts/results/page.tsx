@@ -61,7 +61,8 @@ export default function Results() {
   const team = (s: (Seat | null)[]) => s.filter(Boolean).map((x) => firstName(x!.name)).join(' & ');
   const notLinked = (g: Game) => g.seats.filter((s) => s && s.sheet_id && linked.get(s.sheet_id) === false).map((s) => firstName(s!.name));
   const games = d?.games ?? [];
-  const ready_ = games.filter((g) => g.status === 'approved');
+  const ready_ = games.filter((g) => g.status === 'approved' && notLinked(g).length === 0);
+  const waiting = games.filter((g) => g.status === 'approved' && notLinked(g).length > 0);
   const sent = games.filter((g) => g.status === 'submitted');
 
   async function send() {
@@ -101,8 +102,8 @@ export default function Results() {
           <div className="section stack">
             {games.length === 0 && <div className="card sub">No scored games for this session yet.</div>}
             {games.map((g) => {
-              const st = STATUS[g.status] ?? { text: g.status, cls: 'off' };
               const h = held[g.id], missing = notLinked(g), aWon = g.score_a > g.score_b;
+              const st = g.status === 'approved' && missing.length ? { text: 'Waiting for DUPR accounts', cls: 'off' } : STATUS[g.status] ?? { text: g.status, cls: 'off' };
               return (
                 <button key={g.id} className="card" style={{ width: '100%', textAlign: 'left' }} onClick={() => setEdit(g)}>
                   <div className="between"><span className="small muted">Game {g.game_no ?? '–'}{g.court ? `, court ${g.court}` : ''}</span><span className={'tag ' + st.cls}>{st.text}</span></div>
@@ -111,8 +112,8 @@ export default function Results() {
                     <span className="sc">{g.score_a}–{g.score_b}</span>
                     <span className={'r ' + (!aWon ? 'w' : '')}>{team(g.seats.slice(2))}</span>
                   </div>
-                  {g.status !== 'submitted' && missing.length > 0 && <div className="small" style={{ color: 'var(--warn)', marginTop: 6 }}>Not connected to DUPR yet: {missing.join(', ')}</div>}
-                  {h && <div className="small" style={{ color: 'var(--pink-d)', marginTop: 6 }}>
+                  {g.status !== 'submitted' && missing.length > 0 && <div className="small" style={{ color: 'var(--warn)', marginTop: 6 }}>{missing.join(' and ')} {missing.length === 1 ? 'hasn\'t' : 'haven\'t'} connected DUPR yet. This game goes to DUPR once {missing.length === 1 ? 'they connect' : 'they all connect'}; the rest can be sent now.</div>}
+                  {h && !missing.length && <div className="small" style={{ color: 'var(--pink-d)', marginTop: 6 }}>
                     {h.needs_connect?.length ? `Held: ${h.needs_connect.join(', ')} must connect DUPR in the app. ` : ''}
                     {h.not_eligible?.length ? `Held: DUPR says ${h.not_eligible.join(', ')} can't play rated games. ` : ''}
                     {h.error ? `DUPR said: ${h.error}` : ''}
@@ -122,7 +123,7 @@ export default function Results() {
             })}
           </div>
           <div className="section stack">
-            <button className="btn dupr" disabled={busy || ready_.length === 0} onClick={send}><Icon name="upload" />{busy ? 'Sending to DUPR…' : ready_.length ? `Send ${ready_.length} game${ready_.length === 1 ? '' : 's'} to DUPR` : 'Everything is on DUPR'}</button>
+            <button className="btn dupr" disabled={busy || ready_.length === 0} onClick={send}><Icon name="upload" />{busy ? 'Sending to DUPR…' : ready_.length ? `Send ${ready_.length} game${ready_.length === 1 ? '' : 's'} to DUPR` : waiting.length ? `${waiting.length} game${waiting.length === 1 ? '' : 's'} waiting for DUPR accounts` : 'Everything is on DUPR'}</button>
             <p className="small muted" style={{ textAlign: 'center' }}>Only club directors and organizers on DUPR can send. Games with a player who hasn&apos;t connected DUPR are held back and can be sent later.</p>
           </div>
         </>
