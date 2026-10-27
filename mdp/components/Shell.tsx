@@ -6,9 +6,11 @@ import { useMe } from '@/lib/me';
 import { IS_DEMO } from '@/lib/supabase';
 import { peso } from '@/lib/format';
 import { Icon } from './Icon';
+import { registerSw } from '@/lib/push';
 
 export function Header() {
   const { profile, userId, ready, wallet } = useMe();
+  useEffect(() => { registerSw(); }, []);
   const initials = (profile?.full_name ?? '').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
   return (
     <>

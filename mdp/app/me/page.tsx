@@ -7,6 +7,7 @@ import { useMe } from '@/lib/me';
 import { peso, rating } from '@/lib/format';
 import { Band, Empty, Loading, Sheet, useToast } from '@/components/Shell';
 import { Icon } from '@/components/Icon';
+import { pushState, turnOnPush, type PushState } from '@/lib/push';
 
 const TIER: Record<string, string> = { varsity: 'Varsity', member: 'Member', community: 'Community', flagged: 'Member' };
 interface Dupr { connected: boolean; env?: string; dupr_id?: string; doubles?: number | null; singles?: number | null; eligible?: boolean; name?: string | null }
@@ -19,6 +20,12 @@ export default function Me() {
   const [sso, setSso] = useState<string | null>(null);
   const [saving, setSaving] = useState('');
   const [confirmOff, setConfirmOff] = useState(false);
+  const [push, setPush] = useState<PushState | null>(null);
+  useEffect(() => { pushState().then(setPush).catch(() => setPush('unsupported')); }, []);
+  async function enablePush() {
+    try { const s = await turnOnPush(); setPush(s); toast(s === 'on' ? 'Notifications are on' : s === 'blocked' ? 'Notifications are blocked. Allow them in your phone\'s settings for this app.' : 'Notifications are still off'); }
+    catch (e) { toast((e as Error).message, true); }
+  }
   const loadDupr = useCallback(() => { fn<Dupr>('dupr', 'status').then(setDupr).catch(() => setDupr({ connected: false })); }, []);
   useEffect(() => { if (userId) loadDupr(); }, [userId, loadDupr]);
 
@@ -84,6 +91,8 @@ export default function Me() {
         <div className="list">
           <Link href="/bookings/#wallet"><Icon name="wallet" /><span className="grow">MDP wallet</span><b className="num">{wallet === null ? '—' : peso(wallet)}</b><Icon name="chev" className="chev" /></Link>
           <Link href="/bookings/"><Icon name="ticket" /><span className="grow">Bookings and payments</span><Icon name="chev" className="chev" /></Link>
+          <div><Icon name="bell" /><span className="grow">Notifications<br /><span className="small muted">{push === 'on' ? 'On for this phone' : push === 'needs-install' ? 'On iPhone, add the app to your Home Screen first (Share, then Add to Home Screen)' : push === 'blocked' ? 'Blocked. Allow them in your phone\'s settings' : push === 'unsupported' ? 'This browser can\'t show notifications' : 'Payments approved, spots opening, your turn on court'}</span></span>
+            {push === 'off' && <button className="btn sm pink inline" onClick={enablePush}>Turn on</button>}</div>
           <div><Icon name="info" /><span className="grow">Mobile</span><span className="muted">{profile?.phone || 'Not set'}</span></div>
           <button onClick={async () => { await sb().auth.signOut(); router.push('/'); }} style={{ width: '100%', textAlign: 'left' }}><Icon name="out" /><span className="grow">Sign out</span></button>
         </div>
