@@ -40,8 +40,18 @@ export function opensAt(s: Sess, p: Profile | null, lead: Record<string, number>
   return t;
 }
 
-/** Upload a GCash receipt the same way the current app does; returns its public link. */
+/** Upload a GCash receipt the same way the current app does; returns its public link.
+ *  Storage sometimes fails on the first try (a 5xx from Supabase), so it retries once by itself. */
 export async function uploadReceipt(file: File, token: string, query = '', onPct?: (n: number) => void): Promise<string> {
+  try { return await uploadOnce(file, token, query, onPct); }
+  catch (e) {
+    if (!(e as { retry?: boolean }).retry) throw e;
+    await new Promise((r) => setTimeout(r, 1200));
+    return uploadOnce(file, token, query, onPct);
+  }
+}
+
+async function uploadOnce(file: File, token: string, query: string, onPct?: (n: number) => void): Promise<string> {
   const { SB_URL } = await import('./supabase');
   return new Promise((resolve, reject) => {
     const x = new XMLHttpRequest();
@@ -53,9 +63,10 @@ export async function uploadReceipt(file: File, token: string, query = '', onPct
     x.onload = () => {
       let j: { url?: string; error?: string } = {};
       try { j = JSON.parse(x.responseText || '{}'); } catch { /* */ }
-      if (x.status >= 200 && x.status < 300 && j.url) resolve(j.url); else reject(new Error(j.error || `Upload failed (${x.status})`));
+      if (x.status >= 200 && x.status < 300 && j.url) resolve(j.url);
+      else reject(Object.assign(new Error(j.error || 'The upload didn\'t go through. Try again.'), { retry: x.status >= 500 }));
     };
-    x.onerror = () => reject(new Error('Network error during upload'));
+    x.onerror = () => reject(Object.assign(new Error('Your connection dropped during the upload. Try again.'), { retry: true }));
     x.send(file);
   });
 }
