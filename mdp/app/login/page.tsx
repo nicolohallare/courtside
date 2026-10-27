@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { sb, cleanError, IS_DEMO } from '@/lib/supabase';
+import { Band } from '@/components/Shell';
 
 export default function Login() {
   const router = useRouter();
@@ -18,14 +19,17 @@ export default function Login() {
     router.push(next && next.startsWith('/') ? next : '/');
   }
   return (
-    <form className="auth-wrap" onSubmit={submit}>
-      <div className="auth-ttl">Welcome Back</div>
-      <div className="auth-sub">{IS_DEMO ? 'Demo: sign in with a demo account. Real MDP passwords don\'t work here.' : 'Sign in with your Match Day Pickle account: the same email and password as the current app.'}</div>
-      {error && <div className="form-err" style={{ display: 'block' }}>{error}</div>}
-      <div className="fg"><label className="flbl">Email</label><input className="finp" type="email" autoComplete="email" required placeholder="your@email.com" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
-      <div className="fg"><label className="flbl">Password</label><input className="finp" type="password" autoComplete="current-password" required placeholder="Your password" value={password} onChange={(e) => setPassword(e.target.value)} /></div>
-      <button className="btn btn-g" disabled={busy}>{busy ? 'Signing in…' : 'Sign In'}</button>
-      {!IS_DEMO && <div className="auth-switch">Forgot your password? Reset it in the <a href="https://matchdaypickleop.netlify.app/" style={{ color: 'var(--pk)', fontWeight: 700 }}>current app</a>.</div>}
-    </form>
+    <>
+      <Band>
+        <h1 className="h1" style={{ marginTop: 10 }}>Sign in</h1>
+        <p className="sub" style={{ marginTop: 6 }}>{IS_DEMO ? 'This is the demo. Use a demo account; real MDP passwords don\'t work here.' : 'Use the same email and password as before. Your bookings, wallet and rating come with you.'}</p>
+      </Band>
+      <form className="section" onSubmit={submit}>
+        {error && <div className="err" role="alert">{error}</div>}
+        <label className="field"><span>Email</span><input className="input" type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} /></label>
+        <label className="field"><span>Password</span><input className="input" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} /></label>
+        <button className="btn pink" disabled={busy}>{busy ? 'Signing in…' : 'Sign in'}</button>
+      </form>
+    </>
   );
 }

@@ -7,7 +7,8 @@ import { useMe, profileProblem } from '@/lib/me';
 import { fmtClock, fmtDate, peso } from '@/lib/format';
 import { loadSessions, type Sess } from '@/lib/sessions';
 import { GcashPay } from '@/components/GcashPay';
-import { Loading, useToast } from '@/components/Shell';
+import { Band, Empty, Loading, useToast } from '@/components/Shell';
+import { Icon } from '@/components/Icon';
 
 type Step = 'details' | 'gcash' | 'done';
 interface Result { status: string; id: string }
@@ -17,7 +18,7 @@ interface Result { status: string; id: string }
 export default function Book() {
   const router = useRouter();
   const toast = useToast();
-  const { userId, ready, profile, wallet } = useMe();
+  const { userId, ready, profile, wallet, reload } = useMe();
   const [s, setS] = useState<Sess | null | undefined>(undefined);
   const [guest, setGuest] = useState(false);
   const [guestName, setGuestName] = useState('');
@@ -30,11 +31,11 @@ export default function Book() {
     const id = new URLSearchParams(location.search).get('s');
     loadSessions().then((l) => setS(l.find((x) => x.id === id) ?? null)).catch(() => setS(null));
   }, []);
-  useEffect(() => { if (ready && !userId) router.replace('/login/'); }, [ready, userId, router]);
+  useEffect(() => { if (ready && !userId) router.replace('/login/?next=' + encodeURIComponent(location.pathname + location.search)); }, [ready, userId, router]);
 
   if (s === undefined || !ready) return <Loading />;
-  if (s === null) return <div className="empty2">This session isn&apos;t open for booking. <Link href="/" style={{ color: 'var(--pk)' }}>Back to sessions</Link></div>;
-  if (s.requires_approval) return <div className="empty2">The host checks players first for this session. <Link href={'/?s=' + s.id} style={{ color: 'var(--pk)', fontWeight: 800 }}>Request to join</Link></div>;
+  if (s === null) return <Empty title="This session isn't open for booking"><Link className="link" href="/">See all sessions</Link></Empty>;
+  if (s.requires_approval) return <Empty title="The host approves players first"><Link className="link" href={'/s/?id=' + s.id}>Ask to join instead</Link></Empty>;
 
   const name = profile?.full_name ?? '';
   const total = Number(s.fee) * (guest ? 2 : 1);
@@ -43,8 +44,8 @@ export default function Book() {
   const due = total - fromWallet;
 
   async function book(proofUrl: string | null, ref: string) {
-    const problem = profileProblem(profile); if (problem) { toast('⚠️ ' + problem, true); return; }
-    if (guest && !guestName.trim()) { toast('Add your guest\'s full name', true); return; }
+    const problem = profileProblem(profile); if (problem) { toast(problem, true); return; }
+    if (guest && !guestName.trim()) { toast('Add your guest\'s full name.', true); return; }
     setBusy(true);
     try {
       const r = await mdpApi<Result>('register', '', { method: 'POST', body: {
@@ -52,76 +53,80 @@ export default function Book() {
         amount: s!.fee, gcash_ref: ref || null, status: 'pending', proof_url: proofUrl,
         payment_method: fromWallet > 0 ? 'wallet' : 'gcash',
       } });
-      setResult(r); setStep('done');
-    } catch (e) { toast('⚠️ ' + (e as Error).message, true); }
+      setResult(r); setStep('done'); reload();
+    } catch (e) { toast((e as Error).message, true); }
     setBusy(false);
   }
 
-  if (step === 'gcash') return (
+  const head = (n: number) => (
     <>
-      <button className="back-btn" onClick={() => setStep('details')}>← Back</button>
-      <GcashPay amount={due} name={name + (guest ? ' + guest' : '')} number={s.gcash_number} acct={s.gcash_name} busy={busy} onSubmit={(u, ref) => book(u, ref)} />
+      <h1 className="h2" style={{ color: '#fff', marginTop: 4 }}>{s.label}</h1>
+      <p className="sub">{fmtDate(s.session_date)}, {fmtClock(s.time_start)} to {fmtClock(s.time_end)}, {s.venue}</p>
+      <div className="steps-bar">
+        <div className={n >= 1 ? 'on' : ''}><i /><span>Your spot</span></div>
+        <div className={n >= 2 ? 'on' : ''}><i /><span>Pay</span></div>
+        <div className={n >= 3 ? 'on' : ''}><i /><span>Done</span></div>
+      </div>
     </>
   );
 
   if (step === 'done' && result) {
     const paid = result.status === 'paid';
     return (
-      <div className="suc-wrap">
-        <div className="suc-ring" style={paid ? {} : { background: 'linear-gradient(135deg,var(--go),#b8942b)', color: '#fff' }}>{paid ? '✓' : '⏳'}</div>
-        <div className="suc-ttl">{paid ? <>YOU&apos;RE <em>IN!</em></> : <>WE&apos;RE <em>CHECKING</em><br />YOUR PAYMENT</>}</div>
-        <div className="suc-sub">{paid ? `See you at ${s.venue}.` : 'Your receipt is checked automatically, usually within a minute. Your spot is held while we check.'}</div>
-        <div className="bcard">
-          <div className="brow"><div className="bicon">👤</div><div><div className="blbl">Player</div><div className="bval">{name}{guest ? ` + ${guestName}` : ''}</div></div></div>
-          <div className="brow"><div className="bicon">📅</div><div><div className="blbl">Session</div><div className="bval">{s.label}, {fmtDate(s.session_date)}</div></div></div>
-          <div className="brow"><div className="bicon">📍</div><div><div className="blbl">Venue</div><div className="bval">{s.venue}</div></div></div>
-          <div className="brow"><div className="bicon">💳</div><div><div className="blbl">Amount</div><div className="bval g">{peso(total)}</div></div></div>
+      <>
+        <Band>{head(3)}</Band>
+        <div className="done">
+          <div className={'seal' + (paid ? '' : ' wait')}><Icon name={paid ? 'check' : 'clock'} /></div>
+          <h2 className="h1">{paid ? 'You\'re in' : 'Checking your receipt'}</h2>
+          <p className="sub" style={{ marginTop: 6 }}>{paid ? `See you at ${s.venue}. Tap I'm here on the Courts tab when you arrive.` : 'This usually takes under a minute. Your spot is held while we check, and you\'ll get a notification.'}</p>
         </div>
-        <Link className="btn btn-g" href="/slots/">View my slots</Link>
-      </div>
+        <div className="section stack">
+          <div className="bill">
+            <div><span>Player</span><b>{name}{guest ? ` and ${guestName}` : ''}</b></div>
+            <div><span>Paid</span><b className="num">{peso(total)}</b></div>
+          </div>
+          <Link className="btn navy" href="/bookings/">See my bookings</Link>
+        </div>
+      </>
     );
   }
 
+  if (step === 'gcash') return (
+    <>
+      <Band back={{ onClick: () => setStep('details'), label: 'Back' }}>
+        {head(2)}
+        <div className="pay-amount"><div className="small" style={{ color: 'var(--cream)' }}>Send by GCash</div><div className="num">{peso(due)}</div></div>
+      </Band>
+      <div className="section"><GcashPay amount={due} name={name} number={s.gcash_number} acct={s.gcash_name} busy={busy} onSubmit={(u, ref) => book(u, ref)} /></div>
+    </>
+  );
+
   return (
     <>
-      <button className="back-btn" onClick={() => router.push('/?s=' + s.id)}>← Back to sessions</button>
-      <div className="reg-hero">
-        <div className="reg-eye">Open Play</div>
-        <div className="reg-ttl">{s.label}</div>
-        <div className="reg-meta">{fmtDate(s.session_date)} · {s.venue} · {fmtClock(s.time_start)}–{fmtClock(s.time_end)}</div>
-      </div>
-      <div className="fbody">
-        <div className="fg">
-          <label className="flbl">Registering as</label>
-          <div style={{ padding: '14px 16px', background: 'rgba(82,183,136,.1)', border: '1.5px solid rgba(82,183,136,.35)', borderRadius: 'var(--rs)', fontWeight: 800, fontSize: 16, color: 'var(--gr)' }}>🔒 {name || '—'}</div>
-        </div>
-        <div className="fg" style={{ marginBottom: 14 }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer', padding: '12px 14px', background: 'rgba(var(--rgb-surface),.04)', border: '1px solid var(--b)', borderRadius: 'var(--rs)' }}>
-            <input type="checkbox" checked={guest} onChange={(e) => setGuest(e.target.checked)} style={{ width: 18, height: 18, accentColor: 'var(--pk)' }} />
-            <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--cr)' }}>Bringing a guest? <span style={{ fontSize: 11, color: 'var(--cd)', fontWeight: 500 }}>(max 1, +{peso(s.fee)})</span></span>
-          </label>
-          {guest && <div style={{ marginTop: 10 }}><label className="flbl">Guest&apos;s full name</label><input className="finp" value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="e.g. Juan Dela Cruz" /></div>}
-        </div>
-        <div className="fee-card">
-          <div className="fee-ttl">Payment Summary</div>
-          <div className="fee-line"><span className="fl">Open Play Fee</span><span className="fv">{peso(s.fee)}</span></div>
-          {guest && <div className="fee-line"><span className="fl">Guest Fee</span><span className="fv" style={{ color: 'var(--pk)' }}>{peso(s.fee)}</span></div>}
-          {fromWallet > 0 && <div className="fee-line"><span className="fl">From your MDP wallet</span><span className="fv" style={{ color: 'var(--gr)' }}>−{peso(fromWallet)}</span></div>}
-          {!!s.venue_fee && <div className="fee-line"><span className="fl">Venue entrance (at door)</span><span className="fv" style={{ color: 'var(--cd)' }}>{peso(s.venue_fee)}</span></div>}
-          <div className="fee-tot"><span className="fee-tot-lbl">{due > 0 ? 'GCash Total' : 'To pay now'}</span><span className="fee-tot-amt">{peso(due)}</span></div>
-        </div>
+      <Band back={{ href: '/s/?id=' + s.id, label: 'Session' }}>{head(1)}</Band>
+      <div className="section stack">
+        <div className="card row"><span className="avatar" style={{ background: 'var(--ink)', color: 'var(--cream)' }}>{name.split(' ').map((w) => w[0]).slice(0, 2).join('')}</span><div><div className="small muted">Booking for</div><b>{name || '—'}</b></div></div>
+        <label className={'check' + (guest ? ' on' : '')}>
+          <input type="checkbox" checked={guest} onChange={(e) => setGuest(e.target.checked)} />
+          <span><b>Bring a guest</b><br /><span className="small muted">One guest, plus {peso(s.fee)}</span></span>
+        </label>
+        {guest && <label className="field"><span>Guest&apos;s full name</span><input className="input" value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="First and last name" /></label>}
         {bal > 0 && (
-          <label style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 12, fontSize: 13, color: 'var(--cr)' }}>
-            <input type="checkbox" checked={useWallet} onChange={(e) => setUseWallet(e.target.checked)} style={{ width: 18, height: 18, accentColor: 'var(--gr)' }} />
-            Use my MDP wallet ({peso(bal)} available)
+          <label className={'check' + (useWallet ? ' on' : '')}>
+            <input type="checkbox" checked={useWallet} onChange={(e) => setUseWallet(e.target.checked)} />
+            <span><b>Use my MDP wallet</b><br /><span className="small muted">{peso(bal)} available</span></span>
           </label>
         )}
+        <div className="bill">
+          <div><span>Open play</span><span className="num">{peso(s.fee)}</span></div>
+          {guest && <div><span>Guest</span><span className="num">{peso(s.fee)}</span></div>}
+          {fromWallet > 0 && <div><span>From your wallet</span><span className="minus num">−{peso(fromWallet)}</span></div>}
+          {!!s.venue_fee && <div><span className="muted">Venue entrance, at the door</span><span className="muted num">{peso(s.venue_fee)}</span></div>}
+          <div className="total"><span>{due > 0 ? 'To pay by GCash' : 'To pay now'}</span><span className="num">{peso(due)}</span></div>
+        </div>
         {due === 0
-          ? <button className="btn btn-g" disabled={busy} onClick={() => book(null, '')}>{busy ? 'Booking…' : `Pay ${peso(total)} from wallet`}</button>
-          : <>
-              <div className="gcash-hint"><span>💙</span><span><strong>GCash-to-GCash only.</strong> Pay {peso(due)} on the next screen. Your spot is held once your receipt is checked.</span></div>
-              <button className="btn btn-g" onClick={() => { if (guest && !guestName.trim()) { toast('Add your guest\'s full name', true); return; } setStep('gcash'); }}>Continue to GCash payment →</button>
-            </>}
+          ? <button className="btn pink" disabled={busy} onClick={() => book(null, '')}>{busy ? 'Booking…' : `Pay ${peso(total)} from wallet`}</button>
+          : <button className="btn pink" onClick={() => { if (guest && !guestName.trim()) { toast('Add your guest\'s full name.', true); return; } setStep('gcash'); }}>Continue to GCash</button>}
       </div>
     </>
   );

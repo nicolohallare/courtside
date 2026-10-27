@@ -28,7 +28,7 @@ export function useMe() {
 export function profileProblem(p: Profile | null): string | null {
   if (!p) return 'Profile still loading. Try again in a second.';
   const words = String(p.full_name ?? '').trim().split(/\s+/).filter(Boolean);
-  if (words.length < 2 || words.some((w) => w.length < 2 || /^[A-Za-z]\.?$/.test(w))) return 'Add your first and last name (no initials) in the current app\'s profile first.';
-  if (!String(p.phone ?? '').trim()) return 'Add your mobile number in the current app\'s profile first.';
+  if (words.length < 2 || words.some((w) => w.length < 2 || /^[A-Za-z]\.?$/.test(w))) return 'Add your first and last name (no initials) on the Me tab first.';
+  if (!String(p.phone ?? '').trim()) return 'Add your mobile number on the Me tab first.';
   return null;
 }

@@ -59,3 +59,6 @@ export async function uploadReceipt(file: File, token: string, query = '', onPct
     x.send(file);
   });
 }
+
+export const isDuprNight = (s: { label?: string | null; notes?: string | null }) => /dupr/i.test(`${s.label ?? ''} ${s.notes ?? ''}`);
+export const spotsLeft = (s: Sess) => Math.max(0, s.max_players - s.seats_used);

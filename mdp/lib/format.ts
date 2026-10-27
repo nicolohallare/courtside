@@ -24,3 +24,17 @@ export function dateParts(d: string) {
   const x = new Date(d + 'T12:00:00');
   return { mon: MONS[x.getMonth()], day: x.getDate(), weekend: x.getDay() === 0 || x.getDay() === 6, tab: ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][x.getDay()] + ' ' + (x.getMonth() + 1) + '/' + x.getDate() };
 }
+
+/** "Today", "Tomorrow" or "Thursday, Oct 29" for list headings. */
+export function dayHeading(d: string): { title: string; sub: string } {
+  const today = manilaToday();
+  const t = new Date(today + 'T12:00:00+08:00').getTime(), x = new Date(d + 'T12:00:00+08:00').getTime();
+  const diff = Math.round((x - t) / 86400000);
+  const long = new Date(d + 'T12:00:00+08:00').toLocaleDateString('en-PH', { timeZone: TZ, weekday: 'long', month: 'short', day: 'numeric' });
+  if (diff === 0) return { title: 'Today', sub: long };
+  if (diff === 1) return { title: 'Tomorrow', sub: long };
+  const [wd, ...rest] = long.split(', ');
+  return { title: wd, sub: rest.join(', ') };
+}
+export const dow = (d: string) => new Date(d + 'T12:00:00+08:00').toLocaleDateString('en-PH', { timeZone: TZ, weekday: 'short' });
+export const initials = (n: string | null | undefined) => String(n ?? '').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?';
