@@ -146,9 +146,13 @@ function EditSheet({ g, sid, busy, setBusy, onClose, onDone, toast, team }: {
   async function save() {
     setBusy(true);
     try {
-      if (onDupr) await fn('dupr', 'update-match', { record_id: g.id, score_a: a, score_b: b });
-      else await rpc('dupr_sheet_game_save', { p_session: sid, p_game: g.id, p_seats: g.seats.map((s) => s?.sheet_id ?? null), p_score_a: a, p_score_b: b, p_court: g.court, p_game_no: g.game_no, p_force: true });
-      onDone(onDupr ? 'Score fixed on DUPR' : 'Score saved');
+      if (onDupr) {
+        const r = await fn<{ method?: string }>('dupr', 'update-match', { record_id: g.id, score_a: a, score_b: b });
+        onDone(r.method === 'replaced' ? 'Score fixed on DUPR. DUPR wouldn\'t edit it, so the game was replaced with the corrected score.' : 'Score fixed on DUPR');
+        setBusy(false); return;
+      }
+      await rpc('dupr_sheet_game_save', { p_session: sid, p_game: g.id, p_seats: g.seats.map((s) => s?.sheet_id ?? null), p_score_a: a, p_score_b: b, p_court: g.court, p_game_no: g.game_no, p_force: true });
+      onDone('Score saved');
     } catch (e) { toast((e as Error).message, true); }
     setBusy(false);
   }
@@ -162,7 +166,7 @@ function EditSheet({ g, sid, busy, setBusy, onClose, onDone, toast, team }: {
   }
   return (
     <Sheet title={`Game ${g.game_no ?? ''}`} onClose={onClose}>
-      {onDupr && <p className="sub" style={{ marginBottom: 12 }}>This game is on DUPR. A new score is sent to DUPR straight away.</p>}
+      {onDupr && <p className="sub" style={{ marginBottom: 12 }}>This game is on DUPR. A new score is sent to DUPR straight away. It can take up to a minute.</p>}
       {box(team(g.seats.slice(0, 2)), a, setA)}
       {box(team(g.seats.slice(2)), b, setB)}
       <button className="btn pink" style={{ marginTop: 14 }} disabled={busy || a === b || (a === g.score_a && b === g.score_b)} onClick={save}>{a === b ? 'Scores can\'t tie' : onDupr ? `Fix on DUPR: ${a}–${b}` : `Save ${a}–${b}`}</button>
