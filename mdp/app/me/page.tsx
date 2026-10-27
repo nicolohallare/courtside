@@ -107,6 +107,7 @@ export default function Me() {
           <p className="sub" style={{ marginBottom: 10 }}>Log in to DUPR and allow Match Day Pickle to see your DUPR ID and rating.</p>
           <iframe src={sso} title="DUPR login" allow="payment" style={{ width: '100%', height: 540, border: '1px solid var(--line-2)', borderRadius: 12, background: '#fff' }} />
           {saving && <p className="small" style={{ marginTop: 8 }}>{saving}</p>}
+          <p className="small muted" style={{ marginTop: 8 }}>DUPR remembers the last account you used in this browser. To use a different one, <a className="link" href={dupr?.env === 'prod' ? 'https://dashboard.dupr.com' : 'https://uat.dupr.gg'} target="_blank" rel="noreferrer">log out on DUPR</a>, then close this and tap Connect again.</p>
         </Sheet>
       )}
       {confirmOff && (

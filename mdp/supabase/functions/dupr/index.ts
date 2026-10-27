@@ -108,7 +108,7 @@ Deno.serve(async (req) => {
       return json({ error: 'Could not confirm this DUPR account. Please try again.' }, 400);
     }
     const { data: other } = await db.from('dupr_links').select('user_id').eq('dupr_id', duprId).maybeSingle();
-    if (other?.user_id && other.user_id !== uid) return json({ error: 'This DUPR account is already connected to another Match Day Pickle member. Contact support if that is wrong.' }, 409);
+    if (other?.user_id && other.user_id !== uid) return json({ error: `You logged in to DUPR as ${duprId}, and that DUPR account is already connected to another Match Day Pickle member. If you meant a different DUPR account, log out on DUPR's page and log in with that one.` }, 409);
     await db.from('dupr_links').delete().eq('user_id', uid).eq('env', ENV).neq('dupr_id', duprId);
     const info = await partner(`/user/v1.0/${duprId}`);
     const res = info.body?.result ?? null;
