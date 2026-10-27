@@ -355,3 +355,6 @@ textarea.input { min-height: 90px; resize: vertical; }
 .radio-list > label + label { border-top: 1px solid var(--line); }
 .radio-list input { width: 20px; height: 20px; accent-color: var(--pink); margin-top: 2px; }
 .radio-list > label.off { opacity: .5; cursor: not-allowed; }
+
+.tapname { font-weight: 600; text-decoration: underline dotted rgba(13, 27, 42, .45); text-underline-offset: 4px; padding: 4px 0; text-align: left; }
+.tapname:hover { color: var(--pink-d); }

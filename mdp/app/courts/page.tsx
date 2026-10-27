@@ -208,7 +208,7 @@ export default function Courts() {
           </div>
 
           <div className="section">
-            <div className="section-head"><span className="h3">In line</span><span className="sub">{run ? 'Tap a name to edit' : 'Grouped by level'}</span></div>
+            <div className="section-head"><span className="h3">In line</span><span className="sub">{run ? 'Tap a name: level, break, partner' : 'Grouped by level'}</span></div>
             <div className="stack">
               {LEVELS.map((lv) => {
                 const us = units(b.players).filter((u) => u.level === lv.k);
@@ -220,7 +220,7 @@ export default function Courts() {
                     {us.map((u) => (
                       <div key={u.ids[0]} className={'qp' + (me && u.ids.includes(me.id) ? ' me' : '')}>
                         <span className="pos">{(pos += 1)}</span>
-                        <span className="nm">{u.ids.map((i) => (run ? <button key={i} style={{ fontWeight: 600 }} onClick={() => setSheet({ k: 'player', p: byId.get(i)! })}>{u.ids.length === 2 ? firstName(byId.get(i)?.name ?? '') : byId.get(i)?.name}</button> : <span key={i}>{u.ids.length === 2 ? firstName(byId.get(i)?.name ?? '') : byId.get(i)?.name}</span>)).reduce<React.ReactNode[]>((a, x, i) => (i ? [...a, ' & ', x] : [x]), [])}</span>
+                        <span className="nm">{u.ids.map((i) => (run ? <button key={i} className="tapname" onClick={() => setSheet({ k: 'player', p: byId.get(i)! })}>{u.ids.length === 2 ? firstName(byId.get(i)?.name ?? '') : byId.get(i)?.name}</button> : <span key={i}>{u.ids.length === 2 ? firstName(byId.get(i)?.name ?? '') : byId.get(i)?.name}</span>)).reduce<React.ReactNode[]>((a, x, i) => (i ? [...a, ' & ', x] : [x]), [])}</span>
                         {u.ids.length === 2 && <span className="pair">Partners</span>}
                         <span className="tag off">{stackName(u.stack)}</span>
                       </div>
@@ -230,13 +230,13 @@ export default function Courts() {
               })}
               {b.players.some((p) => p.status === 'resting') && (
                 <div className="queue"><div className="qh"><span>On a break</span></div>
-                  {b.players.filter((p) => p.status === 'resting').map((p) => <div key={p.id} className="qp"><span className="nm">{run ? <button onClick={() => setSheet({ k: 'player', p })}>{p.name}</button> : p.name}</span></div>)}
+                  {b.players.filter((p) => p.status === 'resting').map((p) => <div key={p.id} className="qp"><span className="nm">{run ? <button className="tapname" onClick={() => setSheet({ k: 'player', p })}>{p.name}</button> : p.name}</span></div>)}
                 </div>
               )}
               {run && b.players.some((p) => p.status === 'out' || p.status === 'no_show') && (
                 <div className="queue"><div className="qh"><span>Booked, not here yet</span></div>
                   {b.players.filter((p) => p.status === 'out' || p.status === 'no_show').map((p) => (
-                    <div key={p.id} className="qp"><span className="nm">{p.name}</span><button className="btn sm green inline" onClick={() => call('dupr_board_status', { p_player: p.id, p_status: 'here' }, `${firstName(p.name)} checked in`)}>Check in</button></div>
+                    <div key={p.id} className="qp"><span className="nm"><button className="tapname" onClick={() => setSheet({ k: 'player', p })}>{p.name}</button></span><button className="btn sm green inline" onClick={() => call('dupr_board_status', { p_player: p.id, p_status: 'here' }, `${firstName(p.name)} checked in`)}>Check in</button></div>
                   ))}
                 </div>
               )}
