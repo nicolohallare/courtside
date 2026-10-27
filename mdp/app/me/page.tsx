@@ -90,6 +90,7 @@ export default function Me() {
       <div className="section">
         <div className="list">
           <Link href="/bookings/#wallet"><Icon name="wallet" /><span className="grow">MDP wallet</span><b className="num">{wallet === null ? '—' : peso(wallet)}</b><Icon name="chev" className="chev" /></Link>
+          {(profile?.is_admin || profile?.super_admin) && <Link href="/courts/results/"><Icon name="upload" /><span className="grow">Send results to DUPR</span><Icon name="chev" className="chev" /></Link>}
           <Link href="/bookings/"><Icon name="ticket" /><span className="grow">Bookings and payments</span><Icon name="chev" className="chev" /></Link>
           <div><Icon name="bell" /><span className="grow">Notifications<br /><span className="small muted">{push === 'on' ? 'On for this phone' : push === 'needs-install' ? 'On iPhone, add the app to your Home Screen first (Share, then Add to Home Screen)' : push === 'blocked' ? 'Blocked. Allow them in your phone\'s settings' : push === 'unsupported' ? 'This browser can\'t show notifications' : 'Payments approved, spots opening, your turn on court'}</span></span>
             {push === 'off' && <button className="btn sm pink inline" onClick={enablePush}>Turn on</button>}</div>

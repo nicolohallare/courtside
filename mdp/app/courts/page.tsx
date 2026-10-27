@@ -259,6 +259,7 @@ export default function Courts() {
                 })}
               </div>
             )}
+            {s?.is_admin && s.is_dupr && <Link className="btn navy" style={{ marginTop: 12 }} href={'/courts/results/?s=' + sid}><Icon name="upload" />Review and send to DUPR</Link>}
           </div>
         </>
       )}
