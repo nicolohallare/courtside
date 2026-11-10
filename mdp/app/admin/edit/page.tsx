@@ -3,7 +3,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { AdminBand, AdminOnly } from '@/components/AdminBits';
 import { Loading, useToast } from '@/components/Shell';
-import { fmtClock, fmtDate, manilaToday, peso } from '@/lib/format';
+import { fmtDate, manilaToday, peso } from '@/lib/format';
 import { useMe } from '@/lib/me';
 import { mdpApi } from '@/lib/supabase';
 import { loadAdminSessions, nextSameWeekday, repeatOf, type AdminSess } from '@/lib/admin';
@@ -14,13 +14,8 @@ export default function EditSession() {
 
 type F = Record<string, string | boolean>;
 
-/** Days before the session, and Manila clock time, from a stored opening timestamp. */
-function leadOf(date: string, iso: string | null | undefined, fallbackDays: number): { days: number; time: string } {
-  if (!iso) return { days: fallbackDays, time: '18:00' };
-  const local = new Date(Date.parse(iso) + 8 * 3600000);
-  const d = local.toISOString().slice(0, 10), time = local.toISOString().slice(11, 16);
-  return { days: Math.round((Date.parse(date + 'T00:00:00Z') - Date.parse(d + 'T00:00:00Z')) / 86400000), time };
-}
+const WINDOW_DAYS = { varsity: 14, member: 5 } as const;
+const WINDOWS_TEXT = 'Varsity 2 weeks before, Members 5 days, Community 3 days, Flagged 1 hour.';
 const openIso = (date: string, days: number, time: string) => {
   const [y, m, dd] = date.split('-').map(Number), [h, mi] = time.split(':').map(Number);
   return new Date(Date.UTC(y, m - 1, dd - days, h - 8, mi, 0)).toISOString();
@@ -28,7 +23,6 @@ const openIso = (date: string, days: number, time: string) => {
 
 function toForm(s: Partial<AdminSess> & { dupr_access?: string | null }): F {
   const date = String(s.session_date ?? '');
-  const v = leadOf(date, s.varsity_reg_opens_at, 7), p = leadOf(date, s.public_reg_opens_at, 5);
   const str = (x: unknown) => (x === null || x === undefined ? '' : String(x));
   return {
     session_type: s.session_type === 'coaching' ? 'coaching' : 'open_play',
@@ -36,7 +30,6 @@ function toForm(s: Partial<AdminSess> & { dupr_access?: string | null }): F {
     fee: str(s.fee), max_players: str(s.max_players), courts: str(s.courts), venue_fee: str(s.venue_fee),
     gcash_number: str(s.gcash_number), gcash_name: str(s.gcash_name), backup_gcash_number: str(s.backup_gcash_number), backup_gcash_name: str(s.backup_gcash_name),
     notes: str(s.notes), requires_approval: !!s.requires_approval, dupr_access: str(s.dupr_access),
-    v_days: String(v.days), p_days: String(p.days), open_time: v.time,
     coach_name: str(s.coach_name), court_fee: str(s.court_fee), ballboy_fee: str(s.ballboy_fee), coach_fee: str(s.coach_fee),
     coach_gcash_number: str(s.coach_gcash_number), coach_gcash_name: str(s.coach_gcash_name),
   };
@@ -85,15 +78,16 @@ function Form() {
     if (!t('label') || !t('session_date') || !t('venue') || !t('gcash_number') || !t('gcash_name')) { toast('Fill in the name, date, venue and GCash details.', true); return; }
     if (!/^(09\d{9}|639\d{9})$/.test(t('gcash_number').replace(/\D/g, ''))) { toast('The GCash number should look like 09XXXXXXXXX.', true); return; }
     if (!!t('backup_gcash_number') !== !!t('backup_gcash_name')) { toast('Backup GCash: fill in both the number and the name, or neither.', true); return; }
-    const vd = Number(f.v_days), pd = Number(f.p_days);
-    if (!(vd >= 0 && vd <= 60 && pd >= 0 && pd <= 60) || pd > vd) { toast('Registration: Varsity opens first, then everyone (0 to 60 days before).', true); return; }
     const body: Record<string, unknown> = {
       label: t('label'), session_date: t('session_date'), venue: t('venue'), time_start: t('time_start'), time_end: t('time_end'),
       fee: n('fee') ?? 0, max_players: n('max_players') ?? 24, courts: n('courts'), venue_fee: n('venue_fee') ?? 0,
       gcash_number: t('gcash_number'), gcash_name: t('gcash_name'), backup_gcash_number: t('backup_gcash_number') || null, backup_gcash_name: t('backup_gcash_name') || null,
       notes: t('notes'), requires_approval: !!f.requires_approval, dupr_access: t('dupr_access') || null,
       session_type: training ? 'coaching' : 'open_play', is_active: true, visibility: mode?.src?.visibility ?? 'public',
-      varsity_reg_opens_at: openIso(t('session_date'), vd, t('open_time') || '18:00'), public_reg_opens_at: openIso(t('session_date'), pd, t('open_time') || '18:00'),
+      // Standard booking windows, the same for every session (Nov 2026): Varsity 2 weeks before the start,
+      // Members 5 days. Community (3 days) and Flagged (1 hour) follow the tier rules in the database.
+      varsity_reg_opens_at: openIso(t('session_date'), WINDOW_DAYS.varsity, t('time_start') || '18:00'),
+      public_reg_opens_at: openIso(t('session_date'), WINDOW_DAYS.member, t('time_start') || '18:00'),
     };
     if (mode?.k !== 'edit' && mode?.src) { body.venue_id = mode.src.venue_id; body.gcash_owner_user_id = mode.src.gcash_owner_user_id; }
     if (training) {
@@ -147,6 +141,7 @@ function Form() {
           {txt('time_end', 'Ends', { type: 'time' })}
         </div>
         {txt('venue', 'Venue')}
+        <p className="small muted" style={{ marginTop: -6, marginBottom: 14 }}>Booking opens: {WINDOWS_TEXT}</p>
         {!training && <div className="form-grid">{txt('max_players', 'Max players', { type: 'number', inputMode: 'numeric' })}{txt('courts', 'Courts', { type: 'number', inputMode: 'numeric' })}</div>}
 
         {training && (
@@ -171,12 +166,8 @@ function Form() {
         </label>
 
         <details className="more">
-          <summary>More: registration, backup GCash, notes</summary>
-          <div className="form-grid" style={{ marginTop: 8 }}>
-            {txt('v_days', 'Varsity books (days before)', { type: 'number', inputMode: 'numeric' })}
-            {txt('p_days', 'Everyone books (days before)', { type: 'number', inputMode: 'numeric' })}
-          </div>
-          {txt('open_time', 'Booking opens at', { type: 'time' })}
+          <summary>More: backup GCash, notes, host approval</summary>
+          <div style={{ marginTop: 8 }} />
           <div className="form-grid">{txt('backup_gcash_number', 'Backup GCash number', { inputMode: 'tel' })}{txt('backup_gcash_name', 'Backup GCash name')}</div>
           {txt('venue_fee', 'Venue fee paid at the door (₱)', { type: 'number', inputMode: 'numeric' })}
           <label className={'check' + (f.requires_approval ? ' on' : '')} style={{ marginBottom: 14 }}>
@@ -189,7 +180,7 @@ function Form() {
         {!editing && (
           <label className={'check' + (publish ? ' on' : '')} style={{ marginBottom: 14 }}>
             <input type="checkbox" checked={publish} onChange={(e) => setPublish(e.target.checked)} />
-            <span><b>Publish now</b><br /><span className="small muted">Varsity can book {String(f.v_days)} days before, everyone {String(f.p_days)} days before, from {fmtClock(String(f.open_time))}.</span></span>
+            <span><b>Publish now</b><br /><span className="small muted">Booking opens the standard way: {WINDOWS_TEXT}</span></span>
           </label>
         )}
         <button className="btn pink" disabled={busy} onClick={save}>{busy ? 'Saving…' : editing ? 'Save changes' : publish ? 'Create and publish' : 'Save as draft'}</button>
