@@ -106,11 +106,13 @@ export default function Book() {
       <Band back={{ href: '/s/?id=' + s.id, label: 'Session' }}>{head(1)}</Band>
       <div className="section stack">
         <div className="card row"><span className="avatar" style={{ background: 'var(--ink)', color: 'var(--cream)' }}>{name.split(' ').map((w) => w[0]).slice(0, 2).join('')}</span><div><div className="small muted">Booking for</div><b>{name || '—'}</b></div></div>
+        {s.dupr_need ? <p className="small muted">Every player at this session needs their own DUPR account, so guests can&apos;t be added.</p> : (<>
         <label className={'check' + (guest ? ' on' : '')}>
           <input type="checkbox" checked={guest} onChange={(e) => setGuest(e.target.checked)} />
           <span><b>Bring a guest</b><br /><span className="small muted">One guest, plus {peso(s.fee)}</span></span>
         </label>
         {guest && <label className="field"><span>Guest&apos;s full name</span><input className="input" value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder="First and last name" /></label>}
+        </>)}
         {bal > 0 && (
           <label className={'check' + (useWallet ? ' on' : '')}>
             <input type="checkbox" checked={useWallet} onChange={(e) => setUseWallet(e.target.checked)} />

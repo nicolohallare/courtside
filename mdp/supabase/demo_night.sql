@@ -3,6 +3,9 @@
 -- and clears the court board so the night starts fresh. Games already sent to DUPR are kept.
 -- Safe to run again on any day.
 
+-- Demo players aren't all on DUPR; let the seed bookings through the DUPR booking check.
+select set_config('mdp.skip_dupr_gate', 'on', false);
+
 with s as (select id from sessions where label = 'DUPR Demo' order by created_at limit 1)
 update sessions set session_date = (now() at time zone 'Asia/Manila')::date, courts = 3, max_players = 16,
        time_start = '19:00', time_end = '22:00', is_cancelled = false

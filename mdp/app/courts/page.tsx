@@ -54,6 +54,12 @@ export default function Courts() {
     try { await rpc(fn, args); if (ok) toast(ok); setSheet(null); await load(); }
     catch (e) {
       const m = (e as Error).message;
+      if (m.includes('NOT_ON_DUPR:') && fn === 'dupr_board_status') {
+        setBusy(false);
+        const who = m.split('NOT_ON_DUPR:')[1].replace(/ isn't connected to DUPR\.?$/, '');
+        if (window.confirm(`${who} isn't connected to DUPR. Check them in anyway? Their games won't be sent to DUPR.`)) return call(fn, { ...args, p_force: true }, ok);
+        return;
+      }
       if (m.startsWith('DUPLICATE') && fn === 'dupr_board_finish') {
         setBusy(false);
         if (window.confirm('The same four players already have this exact score tonight. Save it as a separate game?')) return call(fn, { ...args, p_force: true }, ok);

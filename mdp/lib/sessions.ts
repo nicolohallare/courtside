@@ -5,6 +5,8 @@ import type { Profile } from './me';
 export interface Sess {
   id: string; label: string; session_date: string; time_start: string; time_end: string; venue: string; notes: string | null;
   fee: number; max_players: number; seats_used: number; waitlist_count: number; courts: number | null;
+  /** What DUPR access the session asks for, from session_dupr_needs. */
+  dupr_need?: DuprNeed;
   organizer_id: string | null; requires_approval: boolean | null; venue_proof_path: string | null; is_special: boolean | null;
   varsity_reg_opens_at: string | null; public_reg_opens_at: string | null; gcash_number: string | null; gcash_name: string | null; venue_fee: number | null;
 }
@@ -15,7 +17,24 @@ export interface Reg {
 }
 export interface RosterRow { id: string; player_name: string; guest_name: string | null; status: string; dupr_doubles: number | null; dupr_singles: number | null; blocks_slot: boolean | null }
 
-export const loadSessions = () => mdpApi<Sess[]>('sessions', 'upcoming=true&limit=20');
+export type DuprNeed = 'BASIC_L1' | 'PREMIUM_L1' | null;
+export interface MyDupr { connected: boolean; dupr_id: string | null; rating: number | null; level: 'BASIC_L1' | 'PREMIUM_L1' | null }
+
+export async function loadSessions(): Promise<Sess[]> {
+  const [list, needs] = await Promise.all([
+    mdpApi<Sess[]>('sessions', 'upcoming=true&limit=20'),
+    rpc<Record<string, DuprNeed>>('session_dupr_needs').catch(() => ({} as Record<string, DuprNeed>)),
+  ]);
+  return list.map((s) => ({ ...s, dupr_need: needs?.[s.id] ?? null }));
+}
+export async function loadMyDupr(): Promise<MyDupr | null> { try { return await rpc<MyDupr>('my_dupr_access'); } catch { return null; } }
+/** Same rule as the server: null when this member may join, else what's missing. */
+export function duprGap(need: DuprNeed | undefined, me: MyDupr | null): null | 'connect' | 'plus' {
+  if (!need) return null;
+  if (!me?.connected || !me.level) return 'connect';
+  if (need === 'PREMIUM_L1' && me.level !== 'PREMIUM_L1') return 'plus';
+  return null;
+}
 export const loadMyRegs = () => mdpApi<Reg[]>('my-regs');
 export const loadRoster = (id: string) => mdpApi<RosterRow[]>('roster', 'session_uuid=' + id);
 export async function loadHosts(): Promise<Record<string, string>> { try { return (await rpc<Record<string, string>>('organizer_names')) ?? {}; } catch { return {}; } }
@@ -71,5 +90,6 @@ async function uploadOnce(file: File, token: string, query: string, onPct?: (n: 
   });
 }
 
-export const isDuprNight = (s: { label?: string | null; notes?: string | null }) => /dupr/i.test(`${s.label ?? ''} ${s.notes ?? ''}`);
+export const isDuprNight = (s: { label?: string | null; notes?: string | null; dupr_need?: DuprNeed }) => !!s.dupr_need || /dupr/i.test(`${s.label ?? ''} ${s.notes ?? ''}`);
+export const isDuprPlus = (s: { dupr_need?: DuprNeed }) => s.dupr_need === 'PREMIUM_L1';
 export const spotsLeft = (s: Sess) => Math.max(0, s.max_players - s.seats_used);

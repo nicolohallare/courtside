@@ -2,6 +2,9 @@
 -- Safe to run tonight: puts "DUPR Demo" on Nov 11 (7 PM), books the 12 demo players, clears the court board,
 -- and removes the unpaid rehearsal tournament entry so registration can be shown fresh.
 
+-- Demo players aren't all on DUPR; let the seed bookings through the DUPR booking check.
+select set_config('mdp.skip_dupr_gate', 'on', false);
+
 with s as (select id from sessions where label = 'DUPR Demo' order by created_at limit 1)
 update sessions set session_date = '2026-11-11'::date, courts = 3, max_players = 16,
        time_start = '19:00', time_end = '22:00', is_cancelled = false

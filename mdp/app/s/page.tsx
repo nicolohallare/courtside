@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { useMe } from '@/lib/me';
 import { rpc } from '@/lib/supabase';
 import { fmtClock, fmtDate, initials, manilaToday, peso } from '@/lib/format';
-import { isDuprNight, loadHosts, loadLeadHours, loadMyRegs, loadMyRequests, loadRoster, loadSessions, spotsLeft, type Reg, type RosterRow, type Sess } from '@/lib/sessions';
+import { isDuprNight, isDuprPlus, loadMyDupr, loadHosts, loadLeadHours, loadMyRegs, loadMyRequests, loadRoster, loadSessions, spotsLeft, type MyDupr, type Reg, type RosterRow, type Sess } from '@/lib/sessions';
 import { Band, Empty, Loading, Sheet, useToast } from '@/components/Shell';
 import { SessionTags, sessionCta, useCtaAction } from '@/components/SessionBits';
 import { Icon } from '@/components/Icon';
@@ -18,6 +18,7 @@ export default function SessionPage() {
   const [regs, setRegs] = useState<Reg[]>([]);
   const [reqs, setReqs] = useState<Record<string, string>>({});
   const [lead, setLead] = useState<Record<string, number>>({});
+  const [myDupr, setMyDupr] = useState<MyDupr | null | undefined>(undefined);
   const [roster, setRoster] = useState<RosterRow[] | null>(null);
   const [asking, setAsking] = useState(false);
   const [note, setNote] = useState('');
@@ -33,6 +34,7 @@ export default function SessionPage() {
     if (!userId) return;
     loadMyRegs().then(setRegs).catch(() => {});
     loadMyRequests().then(setReqs);
+    loadMyDupr().then(setMyDupr);
   }, [userId]);
   useEffect(() => { if (s && userId) loadRoster(s.id).then(setRoster).catch(() => setRoster([])); }, [s, userId]);
   const act = useCtaAction(() => setAsking(true), toast, profile);
@@ -41,7 +43,7 @@ export default function SessionPage() {
   if (s === null) return <Empty title="This session isn't listed any more"><Link className="link" href="/">See all sessions</Link></Empty>;
 
   const host = s.organizer_id ? hosts[s.organizer_id] ?? 'a partner host' : null;
-  const cta = sessionCta(s, { userId, profile, regs, reqs, lead });
+  const cta = sessionCta(s, { userId, profile, regs, reqs, lead, dupr: myDupr });
   const dupr = isDuprNight(s);
   const isToday = s.session_date === manilaToday();
   const players = (roster ?? []).flatMap((p) => {
@@ -76,6 +78,7 @@ export default function SessionPage() {
       <div className="section stack">
         <div className="info-list">
           <div><Icon name="pin" /><div><b>{s.venue}</b>{!!s.venue_fee && <div className="muted small">Plus {peso(s.venue_fee)} venue entrance, paid at the door</div>}</div></div>
+          {isDuprPlus(s) && <div><span style={{ width: 20, display: 'grid', placeItems: 'center' }}><DuprLogo h={9} /></span><div><b>DUPR+ members only</b><div className="muted small">Verified, paying DUPR accounts only, so every rating on court is real. DUPR+ is DUPR&apos;s own membership; you join it in the DUPR app.</div></div></div>}
           {dupr && <div><span style={{ width: 20, display: 'grid', placeItems: 'center' }}><DuprLogo h={9} /></span><div><b>Every game counts for DUPR</b><div className="muted small">Scores are entered on the court board and sent to DUPR after the night. Link your DUPR account in Me.</div></div></div>}
           <div><Icon name="court" /><div><b>The app runs the courts</b><div className="muted small">Tap I&apos;m here when you arrive. You&apos;re grouped by level and called to a court when it&apos;s your turn.</div></div></div>
           {s.requires_approval && <div><Icon name="users" /><div><b>{host ?? 'The host'} approves players first</b><div className="muted small">Ask to join. You only pay once you&apos;re approved.</div></div></div>}
