@@ -32,6 +32,7 @@ export function Header() {
         <span className="grow" />
         {ready && (userId ? (
           <>
+            {(profile?.is_admin || profile?.super_admin) && <Link href="/admin/" className="admin-link" aria-label="Admin"><Icon name="shield" />Admin</Link>}
             {wallet !== null && <Link href="/bookings/#wallet" className="wallet-pill" aria-label="Wallet balance"><i />{peso(wallet)}</Link>}
             <Link href="/me/" className="avatar" aria-label="Your profile">{initials || <Icon name="user" />}</Link>
           </>
