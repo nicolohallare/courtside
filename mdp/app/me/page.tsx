@@ -79,6 +79,12 @@ export default function Me() {
             <div className="between"><div><b>Connected</b><div className="small muted">{dupr.name ? `${dupr.name}, ` : ''}DUPR ID {dupr.dupr_id}</div></div><button className="btn sm ghost inline" onClick={() => setConfirmOff(true)}>Disconnect</button></div>
             <div className={'tag ' + (dupr.eligible ? 'ok' : 'wait')} style={{ whiteSpace: 'normal' }}>{dupr.eligible ? 'Your account can play rated games' : 'DUPR says this account can\'t play rated games right now. Check your account in the DUPR app.'}</div>
             <p className="small muted">Your rating updates here after each rated game.</p>
+            <button className="btn sm ghost" disabled={saving === 'plus'} onClick={async () => {
+              setSaving('plus');
+              try { const r = await fn<{ level: string | null; error?: string }>('dupr', 'entitlements', { force: true }); toast(r.level === 'PREMIUM_L1' ? 'You have DUPR+. DUPR+ Nights are open to you.' : 'DUPR says you don\'t have DUPR+ yet.'); loadDupr(); }
+              catch (e) { toast((e as Error).message, true); }
+              setSaving('');
+            }}>{saving === 'plus' ? 'Checking…' : 'Check DUPR+ again'}</button>
           </div>
         ) : (
           <div className="card stack">

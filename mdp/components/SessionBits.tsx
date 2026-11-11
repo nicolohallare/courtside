@@ -1,5 +1,6 @@
 'use client';
 import { useRouter } from 'next/navigation';
+import { fn } from '@/lib/supabase';
 import { DuprLogo, DuprTag } from '@/components/Dupr';
 import { peso } from '@/lib/format';
 import { activeReg, duprGap, isDuprNight, isDuprPlus, opensAt, spotsLeft, type MyDupr, type Reg, type Sess } from '@/lib/sessions';
@@ -64,6 +65,13 @@ export function useCtaAction(onRequest: (s: Sess) => void, toast: (m: string, ba
   return (s: Sess, c: Cta) => {
     if (c.kind === 'mine') { router.push('/bookings/'); return; }
     if (c.kind === 'signin') { router.push('/login/?next=' + encodeURIComponent('/s/?id=' + s.id)); return; }
+    if (c.kind === 'blocked' && c.label === 'For DUPR+ members') {
+      // DUPR has no webhook for DUPR+, so ask DUPR again before saying no (cached up to 24 hours).
+      fn<{ level: string | null }>('dupr', 'entitlements', { force: true })
+        .then((r) => { if (r.level === 'PREMIUM_L1') { toast('DUPR+ confirmed. You can book now.'); location.reload(); } else if (c.hint) toast(c.hint); })
+        .catch(() => { if (c.hint) toast(c.hint); });
+      return;
+    }
     if (c.kind === 'blocked') { if (c.hint) toast(c.hint); return; }
     if (c.kind === 'connect') { toast('This session sends games to DUPR, so every player needs a DUPR account.'); router.push('/me/'); return; }
     const why = profileProblem(profile); if (why) { toast(why, true); return; }

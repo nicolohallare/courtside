@@ -4,8 +4,7 @@
 --     A session with "DUPR" in its name or notes needs at least a connected DUPR account.
 --   * Checked when a player books (registrations trigger) and again at check-in on the court board.
 --   * DUPR's own entitlements decide, as saved when the player connected DUPR in the app.
---   * At check-in on a DUPR (not DUPR+) session, an admin may let someone without DUPR play;
---     their games stay off DUPR. Players can never check themselves in without it.
+--   * Check-in is a hard block (DUPR, Nov 11): no DUPR account, no play. No admin override.
 -- Tournaments already check per division (divisions[].requires = 'PREMIUM_L1').
 
 alter table sessions add column if not exists dupr_access text check (dupr_access in ('BASIC_L1', 'PREMIUM_L1'));
@@ -58,21 +57,20 @@ create or replace function _board_gate(p_player uuid, p_self boolean, p_force bo
 language plpgsql security definer set search_path = public as $$
 declare rec dupr_sheet_players; need text; gap text;
 begin
+  -- DUPR (Nov 11): a hard block. Everyone who checks in to a DUPR session needs a connected DUPR
+  -- account, and DUPR+ for a DUPR+ session. No admin override; p_force is ignored.
   select * into rec from dupr_sheet_players where id = p_player;
   need := session_dupr_need(rec.session_id);
   gap := _dupr_gap(rec.profile_id, need);
   if gap is null then return; end if;
   if gap = 'plus' or need = 'PREMIUM_L1' then
     raise exception '%', case when p_self
-      then 'Tonight is for DUPR+ members. If you joined DUPR+ recently, connect DUPR again in Me so we see it.'
+      then 'Tonight is for DUPR+ members. If you joined DUPR+ recently, open Me and tap Check DUPR+ again.'
       else rec.name || ' doesn''t have DUPR+, and tonight is for DUPR+ members.' end;
   end if;
-  if p_self then raise exception 'Connect DUPR in Me to check in. Tonight''s games are sent to DUPR.'; end if;
-  if p_force and is_club_admin() then
-    update dupr_sheet_players set dupr_override_by = auth.uid() where id = p_player;
-    return;
-  end if;
-  raise exception 'NOT_ON_DUPR:% isn''t connected to DUPR.', rec.name;
+  raise exception '%', case when p_self
+    then 'Connect DUPR in Me to check in. It takes a couple of minutes, and you can create a free DUPR account there too.'
+    else rec.name || ' needs to connect DUPR before playing tonight. They can do it in the app under Me in a couple of minutes.' end;
 end $$;
 
 create or replace function board_check_in(p_session uuid, p_status text default 'here') returns jsonb

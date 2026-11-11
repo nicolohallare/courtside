@@ -1,5 +1,5 @@
 // DUPR for the MDP app (signed-in members only).
-//   Players: sso-url, connect, status, disconnect
+//   Players: sso-url, connect, status, disconnect, entitlements
 //   Admins:  send-session, remove-match, update-match
 // DUPR's rating updates arrive at the separate dupr-partner function (no login on that one).
 // Keys live in Edge Function secrets. Player DUPR logins are stored server-side only.
@@ -62,6 +62,36 @@ const roleIn = (clubs: any, clubId: number) => {
   const list: any[] = clubs?.membership ?? clubs ?? [];
   return Array.isArray(list) ? (list.find((m) => Number(m.clubId) === clubId)?.role ?? null) : null;
 };
+// DUPR's public API (player-token calls). Paths come from DUPR's own API description, read once
+// per function start, so we follow DUPR rather than guess; the fallbacks are the documented names.
+let ops: Record<string, { path: string; method: string }> | null = null;
+async function op(id: string, fallback: { path: string; method: string }) {
+  if (!ops) {
+    ops = {};
+    try {
+      const r = await fetch(`${PUBLIC_API}/v3/api-docs/public`, { signal: AbortSignal.timeout(8000) });
+      const d = await r.json();
+      for (const [path, item] of Object.entries<any>(d?.paths ?? {})) for (const [method, o] of Object.entries<any>(item ?? {})) if (o?.operationId) ops[o.operationId] = { path, method: method.toUpperCase() };
+    } catch { /* fall back below */ }
+  }
+  return ops[id] ?? Object.values(ops).find((o) => id.startsWith('/') && new RegExp(id.slice(1)).test(o.path)) ?? fallback;
+}
+// A player's DUPR login token, renewed with their refresh token when DUPR says it expired,
+// so nobody has to log in again (DUPR, Nov 11). Both tokens rotate, so both are saved.
+async function withUserToken(db: SupabaseClient, link: any, call: (token: string) => Promise<{ status: number; body: any }>) {
+  let res = await call(link.access_token);
+  if ((res.status === 401 || res.status === 403) && link.refresh_token) {
+    const o = await op('refreshAccessToken', { path: '/auth/v1.0/refresh', method: 'POST' });
+    const rr = await fetch(`${PUBLIC_API}${o.path}`, { method: o.method, headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'x-refresh-token': link.refresh_token }, body: JSON.stringify({ refreshToken: link.refresh_token }) });
+    const j = await rr.json().catch(() => null);
+    const access = j?.result?.accessToken ?? j?.accessToken ?? null, refresh = j?.result?.refreshToken ?? j?.refreshToken ?? link.refresh_token;
+    if (!access) return { status: 401, body: { message: 'expired' } };
+    link.access_token = access; link.refresh_token = refresh;
+    await db.from('dupr_links').update({ access_token: access, refresh_token: refresh, updated_at: new Date().toISOString() }).eq('dupr_id', link.dupr_id);
+    res = await call(access);
+  }
+  return res;
+}
 async function clubId(db: SupabaseClient): Promise<number | null> {
   const { data } = await db.from('app_config').select('value').eq('key', `dupr_club_id_${ENV}`).maybeSingle();
   return data?.value ? Number(data.value) : null;
@@ -138,20 +168,45 @@ Deno.serve(async (req) => {
     return json({ ok: true });
   }
 
+  // Re-check DUPR+ (DUPR has no webhook for it). Cached for up to 24 hours, as DUPR allows;
+  // the app calls this when a player books or checks in to a DUPR+ session, or taps Check again.
+  if (a === 'entitlements' && req.method === 'POST') {
+    const { force } = await req.json().catch(() => ({}));
+    const { data: l } = await db.from('dupr_links').select('*').eq('user_id', uid).eq('env', ENV).maybeSingle();
+    if (!l) return json({ connected: false, level: null });
+    const fresh = l.entitlements_checked_at && Date.now() - new Date(l.entitlements_checked_at).getTime() < 24 * 3600_000;
+    const level = (e: unknown) => JSON.stringify(e ?? '').includes('PREMIUM_L1') ? 'PREMIUM_L1' : JSON.stringify(e ?? '').includes('BASIC_L1') ? 'BASIC_L1' : null;
+    if (fresh && !force) return json({ connected: true, level: level(l.entitlements), checked_at: l.entitlements_checked_at });
+    const o = await op('/subscription.*/active$', { path: '/subscription/active', method: 'POST' });
+    const r = await withUserToken(db, l, (t) => asUser(o.path, t, o.method, o.method === 'GET' ? undefined : {}));
+    if (r.status === 401) return json({ connected: true, level: level(l.entitlements), relogin: true, error: 'Your DUPR login expired. Connect DUPR again in Me.' }, 409);
+    if (r.status !== 200) return json({ connected: true, level: level(l.entitlements), error: 'Could not reach DUPR right now. Try again in a minute.' }, 502);
+    const ent = r.body?.result ?? r.body;
+    const now = new Date().toISOString();
+    await db.from('dupr_links').update({ entitlements: ent, entitlements_checked_at: now }).eq('dupr_id', l.dupr_id);
+    return json({ connected: true, level: level(ent), checked_at: now });
+  }
+
   // ── Admins ─────────────────────────────────────────────────────────────
   // Warm the DUPR token while the checks below run.
   const tokenReady = partnerToken().catch(() => null);
   const [{ data: isAdmin }, club, { data: mine }] = await Promise.all([
     asMember.rpc('is_club_admin'),
     clubId(db),
-    db.from('dupr_links').select('dupr_id, clubs').eq('user_id', uid).eq('env', ENV).maybeSingle(),
+    db.from('dupr_links').select('*').eq('user_id', uid).eq('env', ENV).maybeSingle(),
   ]);
   await tokenReady;
   if (!isAdmin) return json({ error: 'Admins only.' }, 403);
   if (!club) return json({ error: 'The DUPR club is not set up yet.' }, 400);
-  // DUPR rule: only a DIRECTOR or ORGANIZER of the club may send its results.
-  const role = roleIn(mine?.clubs, club);
-  if (!mine) return json({ error: 'Connect your own DUPR account first (Profile → Connect DUPR).' }, 403);
+  // DUPR rule: only a DIRECTOR or ORGANIZER of the club may send its results, and DUPR asks us to
+  // check the role at the moment of every create, update and delete, so ask DUPR each time.
+  if (!mine) return json({ error: 'Connect your own DUPR account first (Me → Connect DUPR).' }, 403);
+  const memb = await withUserToken(db, mine, (t) => asUser('/user/club/membership', t));
+  if (memb.status === 401) return json({ error: 'Your DUPR login expired. Connect DUPR again in Me, then send.' }, 403);
+  if (memb.status !== 200) return json({ error: 'Could not check your DUPR club role right now. Try again in a minute.' }, 502);
+  const clubsNow = memb.body?.result ?? memb.body;
+  await db.from('dupr_links').update({ clubs: clubsNow, updated_at: new Date().toISOString() }).eq('dupr_id', mine.dupr_id);
+  const role = roleIn(clubsNow, club);
   if (role !== 'DIRECTOR' && role !== 'ORGANIZER') return json({ error: 'Your DUPR account needs to be a director or organizer of the Match Day Pickle club on DUPR to send results.' }, 403);
 
   // DUPR never reuses an identifier, even after a match is deleted, so each new attempt

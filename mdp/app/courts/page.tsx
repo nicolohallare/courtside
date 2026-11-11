@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { DuprLogo, DuprTag } from '@/components/Dupr';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { rpc } from '@/lib/supabase';
+import { fn, rpc } from '@/lib/supabase';
 import { useMe } from '@/lib/me';
 import { fmtClock, initials } from '@/lib/format';
 import { LEVELS, firstName, levelName, minutesSince, myPlace, stackName, suggest, units, type Board, type BLive, type BPlayer, type Suggestion } from '@/lib/board';
@@ -54,12 +54,6 @@ export default function Courts() {
     try { await rpc(fn, args); if (ok) toast(ok); setSheet(null); await load(); }
     catch (e) {
       const m = (e as Error).message;
-      if (m.includes('NOT_ON_DUPR:') && fn === 'dupr_board_status') {
-        setBusy(false);
-        const who = m.split('NOT_ON_DUPR:')[1].replace(/ isn't connected to DUPR\.?$/, '');
-        if (window.confirm(`${who} isn't connected to DUPR. Check them in anyway? Their games won't be sent to DUPR.`)) return call(fn, { ...args, p_force: true }, ok);
-        return;
-      }
       if (m.startsWith('DUPLICATE') && fn === 'dupr_board_finish') {
         setBusy(false);
         if (window.confirm('The same four players already have this exact score tonight. Save it as a separate game?')) return call(fn, { ...args, p_force: true }, ok);
@@ -142,7 +136,7 @@ export default function Courts() {
               <>
                 <div className="h3" style={{ color: '#fff' }}>Arrived?</div>
                 <p className="sub" style={{ margin: '4px 0 12px' }}>Check in and you&apos;ll join the queue for your level. You&apos;ll see your court here.</p>
-                <button className="btn pink" disabled={busy} onClick={() => call('board_check_in', { p_session: sid, p_status: 'here' }, 'You\'re checked in')}><Icon name="check" />I&apos;m here</button>
+                <button className="btn pink" disabled={busy} onClick={async () => { if (b?.session.is_dupr) await fn('dupr', 'entitlements', {}).catch(() => null); call('board_check_in', { p_session: sid, p_status: 'here' }, 'You\'re checked in'); }}><Icon name="check" />I&apos;m here</button>
               </>
             ) : me.status === 'playing' && myLive ? (
               <>
@@ -154,7 +148,7 @@ export default function Courts() {
               <>
                 <div className="h3" style={{ color: '#fff' }}>On a break</div>
                 <p className="sub" style={{ margin: '4px 0 12px' }}>You keep your place in line while you rest.</p>
-                <button className="btn pink" disabled={busy} onClick={() => call('board_check_in', { p_session: sid, p_status: 'here' }, 'Welcome back')}>I&apos;m back</button>
+                <button className="btn pink" disabled={busy} onClick={async () => { if (b?.session.is_dupr) await fn('dupr', 'entitlements', {}).catch(() => null); call('board_check_in', { p_session: sid, p_status: 'here' }, 'Welcome back'); }}>I&apos;m back</button>
               </>
             ) : (
               <>
