@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { DuprLogo, DuprTag } from '@/components/Dupr';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { fn, mdpApi, sb } from '@/lib/supabase';
+import { fn, mdpApi, sb, IS_DEMO } from '@/lib/supabase';
 import { nameProblem, normPhone } from '@/lib/me';
 import { CLASSIC_URL } from '@/lib/classic';
 import { Feedback } from '@/components/Feedback';
@@ -91,7 +91,9 @@ export default function Me() {
 
       <div className="section">
         <div className="section-head"><DuprLogo h={18} />{dupr?.env && dupr.env !== 'prod' && <span className="tag dupr">DUPR test system</span>}</div>
-        {!dupr ? <Loading rows={1} /> : dupr.connected ? (
+        {!dupr ? <Loading rows={1} /> : !IS_DEMO && dupr.env !== 'prod' ? (
+          <div className="card stack"><p className="small">Connecting your DUPR account opens here soon. We&apos;ll send a notification when it&apos;s ready.</p></div>
+        ) : dupr.connected ? (
           <div className="card stack">
             <div className="between"><div><b>Connected</b><div className="small muted">{dupr.name ? `${dupr.name}, ` : ''}DUPR ID {dupr.dupr_id}</div></div><button className="btn sm ghost inline" onClick={() => setConfirmOff(true)}>Disconnect</button></div>
             <div className={'tag ' + (dupr.eligible ? 'ok' : 'wait')} style={{ whiteSpace: 'normal' }}>{dupr.eligible ? 'Your account can play rated games' : 'DUPR says this account can\'t play rated games right now. Check your account in the DUPR app.'}</div>
