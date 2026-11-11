@@ -19,6 +19,7 @@ export default function Bookings() {
   const [moves, setMoves] = useState<Move[] | null>(null);
   const [paying, setPaying] = useState<Reg | null>(null);
   const [busy, setBusy] = useState(false);
+  const [cancelling, setCancelling] = useState<Reg | null>(null);
   const [tab, setTab] = useState<'next' | 'past'>('next');
   const load = useCallback(() => {
     loadMyRegs().then(setRegs).catch(() => setRegs([]));
@@ -45,6 +46,19 @@ export default function Bookings() {
     setBusy(false);
   }
 
+  async function cancel(r: Reg, scope: 'self' | 'guest' | 'both') {
+    setBusy(true);
+    try {
+      if (r.status === 'invited') { await mdpApi('decline-invited-reg', '', { method: 'POST', body: { reg_id: r.id, note: null } }); toast('Invite declined. The spot is free for someone else.'); }
+      else {
+        const res = await mdpApi<{ refunded?: number; promoted_count?: number }>('member-cancel-reg', '', { method: 'POST', body: { reg_id: r.id, scope } });
+        toast(`Cancelled. ${peso(res.refunded ?? 0)} back in your wallet.${res.promoted_count ? ' Someone from the waitlist got your spot.' : ''}`);
+      }
+      setCancelling(null); load(); reload();
+    } catch (e) { toast((e as Error).message, true); }
+    setBusy(false);
+  }
+
   const ticket = (r: Reg) => {
     const due = owed(r);
     const canPay = toPay.includes(r);
@@ -55,6 +69,9 @@ export default function Bookings() {
             {Number(wallet ?? 0) >= due && r.status === 'invited' && <button className="btn sm green" disabled={busy} onClick={() => payWallet(r)}>Pay {peso(due)} from wallet</button>}
             <button className="btn sm pink" onClick={() => setPaying(r)}>Pay {peso(due)} by GCash</button>
           </div>
+        )}
+        {upcoming.includes(r) && ['paid', 'pending', 'waitlisted', 'invited'].includes(r.status) && (
+          <button className="link small" style={{ alignSelf: 'flex-start' }} onClick={() => setCancelling(r)}>{r.status === 'waitlisted' ? 'Leave the waitlist' : r.status === 'invited' ? 'Decline invite' : 'Cancel booking'}</button>
         )}
       </Ticket>
     );
@@ -81,6 +98,7 @@ export default function Bookings() {
       <div className="section" id="wallet">
         <div className="section-head"><span className="h3">MDP wallet</span><span className="num" style={{ fontWeight: 800, fontSize: 22, color: 'var(--court)' }}>{wallet === null ? '—' : peso(wallet)}</span></div>
         <p className="sub" style={{ marginBottom: 10 }}>Refunds land here and are used first when you book.</p>
+        <Link className="btn sm pink" href="/topup/" style={{ marginBottom: 12 }}>Top up</Link>
         {!moves ? <Loading rows={1} /> : moves.length === 0 ? <div className="card sub">No wallet activity yet.</div> : (
           <div className="list">
             {moves.slice(0, 12).map((m, i) => (
@@ -94,6 +112,19 @@ export default function Bookings() {
         )}
       </div>
 
+      {cancelling && cancelling.sessions && (
+        <Sheet title={cancelling.status === 'waitlisted' ? 'Leave the waitlist?' : cancelling.status === 'invited' ? 'Decline this invite?' : 'Cancel this booking?'} onClose={() => setCancelling(null)}>
+          <p className="sub" style={{ marginBottom: 12 }}>{cancelling.sessions.label}. {cancelling.status === 'invited' ? 'The host will see that you can\'t make it.' : 'What you paid goes back to your MDP wallet, following the club\'s cancellation rules.'}</p>
+          <div className="stack">
+            {cancelling.guest_name && cancelling.status !== 'waitlisted' && cancelling.status !== 'invited' ? (<>
+              <button className="btn ghost" disabled={busy} onClick={() => cancel(cancelling, 'guest')}>Cancel only my guest, {cancelling.guest_name}</button>
+              <button className="btn ghost" disabled={busy} onClick={() => cancel(cancelling, 'self')}>Cancel only me (my guest still plays)</button>
+              <button className="btn pink" disabled={busy} onClick={() => cancel(cancelling, 'both')}>Cancel both</button>
+            </>) : <button className="btn pink" disabled={busy} onClick={() => cancel(cancelling, cancelling.status === 'waitlisted' ? 'self' : 'both')}>{busy ? 'One moment…' : 'Yes, cancel'}</button>}
+            <button className="btn ghost" onClick={() => setCancelling(null)}>Keep it</button>
+          </div>
+        </Sheet>
+      )}
       {paying && paying.sessions && (
         <Sheet title={`Pay ${peso(owed(paying))} by GCash`} onClose={() => setPaying(null)}>
           <GcashPay amount={owed(paying)} name={profile?.full_name ?? ''} number={paying.sessions.gcash_number} acct={paying.sessions.gcash_name}

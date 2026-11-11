@@ -13,7 +13,9 @@ alter table dupr_sheet_players add column if not exists dupr_override_by uuid;
 -- What a session asks of players: null, 'BASIC_L1' or 'PREMIUM_L1'.
 create or replace function session_dupr_need(p_session uuid) returns text
 language sql stable security definer set search_path = public as $$
-  select coalesce(s.dupr_access, case when s.label ilike '%dupr%' or coalesce(s.notes, '') ilike '%dupr%' then 'BASIC_L1' end)
+  -- Off until production DUPR is connected (app_config dupr_gate = 'on').
+  select case when coalesce((select value from app_config where key = 'dupr_gate'), 'off') = 'on' then
+    coalesce(s.dupr_access, case when s.label ilike '%dupr%' or coalesce(s.notes, '') ilike '%dupr%' then 'BASIC_L1' end) end
   from sessions s where s.id = p_session;
 $$;
 

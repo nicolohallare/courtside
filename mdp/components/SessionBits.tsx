@@ -37,7 +37,7 @@ export const REG_LABEL: Record<string, { text: string; cls: string }> = {
 
 export type Cta =
   | { kind: 'mine'; label: string; reg: Reg }
-  | { kind: 'book' | 'request' | 'signin' | 'connect'; label: string }
+  | { kind: 'book' | 'request' | 'signin' | 'connect' | 'waitlist'; label: string }
   | { kind: 'blocked'; label: string; hint?: string };
 
 /** What the main button on a session says and does for this member. Same rules as the booking server. */
@@ -55,7 +55,7 @@ export function sessionCta(s: Sess, o: { userId: string | null; profile: Profile
   const gap = o.dupr === undefined ? null : duprGap(s.dupr_need, o.dupr);
   if (gap === 'connect') return { kind: 'connect', label: 'Connect DUPR to book' };
   if (gap === 'plus') return { kind: 'blocked', label: 'For DUPR+ members', hint: 'This session is for DUPR+ members: verified, paying DUPR accounts. If you have DUPR+, disconnect and connect DUPR again in Me so we see it.' };
-  if (spotsLeft(s) === 0) return { kind: 'blocked', label: 'Session full' };
+  if (spotsLeft(s) === 0) return s.requires_approval ? { kind: 'blocked', label: 'Session full' } : { kind: 'waitlist', label: `Full. Join the waitlist` };
   if (s.requires_approval) return { kind: 'request', label: 'Ask to join' };
   return { kind: 'book', label: `Book a spot, ${peso(s.fee)}` };
 }
@@ -74,7 +74,7 @@ export function useCtaAction(onRequest: (s: Sess) => void, toast: (m: string, ba
     }
     if (c.kind === 'blocked') { if (c.hint) toast(c.hint); return; }
     if (c.kind === 'connect') { toast('This session sends games to DUPR, so every player needs a DUPR account.'); router.push('/me/'); return; }
-    const why = profileProblem(profile); if (why) { toast(why, true); return; }
+    const why = profileProblem(profile); if (why) { toast(why, true); router.push('/me/#profile'); return; }
     if (c.kind === 'request') { onRequest(s); return; }
     router.push('/book/?s=' + s.id);
   };

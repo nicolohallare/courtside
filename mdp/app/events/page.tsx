@@ -10,12 +10,14 @@ import { Spots } from '@/components/SessionBits';
 import { eventDates, type Tournament } from '@/lib/events';
 import { DuprTag } from '@/components/Dupr';
 
+const PHOTOS = 'https://mdp-photos.netlify.app/';
+
 export default function Events() {
   const { userId, ready } = useMe();
   const [t, setT] = useState<Tournament | null | undefined>(undefined);
   const [nights, setNights] = useState<Sess[] | null>(null);
   useEffect(() => { loadSessions().then((l) => setNights(l.filter(isDuprNight))).catch(() => setNights([])); }, []);
-  useEffect(() => { if (ready) (userId ? rpc<Tournament | null>('tournament_view', { p_tournament: null }) : Promise.resolve(null)).then(setT).catch(() => setT(null)); }, [ready, userId]);
+  useEffect(() => { if (ready) (userId ? rpc<Tournament | null>('tournament_view', { p_tournament: null }) : Promise.resolve(null)).then((v) => setT(v && typeof v === 'object' && !Array.isArray(v) && (v as Tournament).id ? v : null)).catch(() => setT(null)); }, [ready, userId]);
 
   return (
     <>
@@ -41,7 +43,22 @@ export default function Events() {
               </div>
             </div>
           </Link>
-        ) : <div className="card sub">{userId ? 'The next tournament hasn\'t been announced yet. You\'ll get a notification when registration opens.' : <><Link className="link" href="/login/?next=/events/">Sign in</Link> to see upcoming tournaments.</>}</div>}
+        ) : <div className="card sub">The next tournament hasn&apos;t been announced yet. You&apos;ll get a notification when registration opens.</div>}
+      </div>
+
+      <div className="section">
+        <div className="section-head"><span className="h3">Last tournament</span></div>
+        <a className="past-event" href={PHOTOS} target="_blank" rel="noreferrer">
+          <div className="pic" style={{ backgroundImage: `url(${PHOTOS}og.jpg)` }} />
+          <div className="body">
+            <div className="small" style={{ color: 'var(--gold)', fontWeight: 800, letterSpacing: '.08em', textTransform: 'uppercase' }}>Oct 10 and 11, The Zone</div>
+            <div className="h2" style={{ color: '#fff', marginTop: 4 }}>Season 3: Spin Off Edition</div>
+            <p className="sub" style={{ marginTop: 4 }}>2,282 photos and the Season 3 champions. Find photos of yourself with a selfie.</p>
+            <div className="row2">
+              <span className="btn sm pink inline">Photos and champions</span>
+            </div>
+          </div>
+        </a>
       </div>
 
       <div className="section">

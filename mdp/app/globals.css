@@ -390,3 +390,10 @@ textarea.input { min-height: 90px; resize: vertical; }
 .act-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
 .act-grid .btn { width: 100%; white-space: nowrap; font-size: 14px; }
 .btn.dim { background: rgba(232, 223, 200, .12); color: var(--cream); }
+.okmsg { background: rgba(45, 106, 79, .1); color: var(--court); padding: 12px 14px; border-radius: var(--r-sm); font-size: 14px; font-weight: 600; margin-bottom: 14px; }
+.ticket .actions { display: flex; flex-direction: column; gap: 8px; }
+.ticket .actions:empty { display: none; }
+.past-event { display: block; border-radius: var(--r-lg); overflow: hidden; background: var(--ink); color: var(--cream); text-decoration: none; }
+.past-event .pic { aspect-ratio: 1200 / 630; background: center / cover no-repeat; }
+.past-event .body { padding: 14px 16px 16px; }
+.past-event .row2 { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }

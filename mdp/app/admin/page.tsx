@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { CLASSIC_URL } from '@/lib/classic';
 import { useEffect, useState } from 'react';
 import { AdminBand, AdminOnly } from '@/components/AdminBits';
 import { Loading } from '@/components/Shell';
@@ -63,11 +64,11 @@ function Today() {
           </Link>
         )}
         {open > 0 && (
-          <a href="https://matchdaypickleop.netlify.app/#admin" className="todo" target="_blank" rel="noopener">
+          <Link href="/admin/feedback/" className="todo">
             <span className="n">{open}</span>
-            <span><div className="t">Feedback to answer</div><div className="d">Opens in the current app for now</div></span>
+            <span><div className="t">Feedback to answer</div><div className="d">Problems and questions from members</div></span>
             <Icon name="chev" className="chev" />
-          </a>
+          </Link>
         )}
       </div>
 
@@ -96,6 +97,14 @@ function Today() {
           );
         })}
         <Link className="link" href="/admin/sessions/">All sessions</Link>
+      </div>
+
+      <div className="section">
+        <div className="section-head"><span className="h3">More tools</span></div>
+        <div className="list">
+          <Link href="/admin/feedback/"><Icon name="bell" /><span className="grow">Feedback</span><Icon name="chev" className="chev" /></Link>
+          <a href={CLASSIC_URL + '/#admin'} target="_blank" rel="noopener"><Icon name="link" /><span className="grow">Members, coaching, financials, venues<br /><span className="small muted">In the classic app for now. Same login.</span></span><Icon name="chev" className="chev" /></a>
+        </div>
       </div>
       <div style={{ height: 24 }} />
     </>

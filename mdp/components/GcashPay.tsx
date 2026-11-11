@@ -6,8 +6,8 @@ import { useToast } from './Shell';
 import { Icon } from './Icon';
 
 /** Send the exact amount to the GCash number shown, then upload the receipt. It's checked automatically. */
-export function GcashPay({ amount, name, number, acct, uploadQuery = '', busy, onSubmit }: {
-  amount: number; name: string; number: string | null; acct: string | null; uploadQuery?: string; busy: boolean;
+export function GcashPay({ amount, name, number, acct, uploadQuery = '', busy, onSubmit, note }: {
+  amount: number; name: string; number: string | null; acct: string | null; uploadQuery?: string; busy: boolean; note?: string;
   onSubmit: (proofUrl: string, ref: string) => void;
 }) {
   const toast = useToast();
@@ -60,7 +60,7 @@ export function GcashPay({ amount, name, number, acct, uploadQuery = '', busy, o
       <button className="btn pink" disabled={busy || state !== 'ok' || !url} onClick={() => url && onSubmit(url, ref)}>
         {busy ? 'Sending…' : state === 'up' ? 'Uploading receipt…' : 'Send receipt'}
       </button>
-      <p className="small muted" style={{ textAlign: 'center' }}>Receipts are checked automatically, usually within a minute. Your spot is held while we check.</p>
+      <p className="small muted" style={{ textAlign: 'center' }}>{note ?? 'Receipts are checked automatically, usually within a minute. Your spot is held while we check.'}</p>
     </div>
   );
 }

@@ -66,7 +66,9 @@ language sql stable security definer set search_path = public as $$
     'level', case when l.entitlements::text like '%PREMIUM_L1%' then 'PREMIUM_L1'
                   when l.entitlements::text like '%BASIC_L1%' then 'BASIC_L1' end)
   from profiles p
-  left join lateral (select * from dupr_links x where x.user_id = p.id order by x.updated_at desc limit 1) l on true
+  left join lateral (select * from dupr_links x where x.user_id = p.id
+    and x.env = coalesce((select value from app_config where key = 'dupr_env'), x.env)
+    order by x.updated_at desc limit 1) l on true
   where p.id = p_user;
 $$;
 

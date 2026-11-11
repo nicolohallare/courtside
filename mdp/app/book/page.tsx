@@ -5,10 +5,11 @@ import { useRouter } from 'next/navigation';
 import { mdpApi } from '@/lib/supabase';
 import { useMe, profileProblem } from '@/lib/me';
 import { fmtClock, fmtDate, peso } from '@/lib/format';
-import { loadSessions, type Sess } from '@/lib/sessions';
+import { loadSessions, spotsLeft, type Sess } from '@/lib/sessions';
 import { GcashPay } from '@/components/GcashPay';
 import { Band, Empty, Loading, useToast } from '@/components/Shell';
 import { Icon } from '@/components/Icon';
+import { RulesSheet, loadRules } from '@/components/Rules';
 
 type Step = 'details' | 'gcash' | 'done';
 interface Result { status: string; id: string }
@@ -26,6 +27,11 @@ export default function Book() {
   const [useWallet, setUseWallet] = useState(true);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<Result | null>(null);
+  const [rulesOk, setRulesOk] = useState(true);
+  const [askRules, setAskRules] = useState<null | (() => void)>(null);
+  useEffect(() => { if (userId) loadRules().then((r) => setRulesOk(!r || r.already_accepted)).catch(() => {}); }, [userId]);
+  // New members agree to the house rules once, before their first booking.
+  const withRules = (go: () => void) => { if (rulesOk) go(); else setAskRules(() => go); };
 
   useEffect(() => {
     const id = new URLSearchParams(location.search).get('s');
@@ -36,6 +42,38 @@ export default function Book() {
   if (s === undefined || !ready) return <Loading />;
   if (s === null) return <Empty title="This session isn't open for booking"><Link className="link" href="/">See all sessions</Link></Empty>;
   if (s.requires_approval) return <Empty title="The host approves players first"><Link className="link" href={'/s/?id=' + s.id}>Ask to join instead</Link></Empty>;
+
+  if (spotsLeft(s) === 0) {
+    const fee = Number(s.fee), bal0 = Math.max(0, Number(wallet ?? 0));
+    const join = async () => {
+      setBusy(true);
+      try {
+        const r = await mdpApi<{ waitlist_position?: number; waitlist_total?: number }>('waitlist-join', '', { method: 'POST', body: { session_uuid: s.id } });
+        toast(`You're #${r.waitlist_position ?? 1} on the waitlist. We'll tell you if a spot opens.`); reload(); router.push('/bookings/');
+      } catch (e) { toast((e as Error).message, true); }
+      setBusy(false);
+    };
+    return (
+      <>
+        <Band back={{ href: '/s/?id=' + s.id, label: 'Session' }}>
+          <h1 className="h2" style={{ color: '#fff', marginTop: 4 }}>Join the waitlist</h1>
+          <p className="sub">{s.label}, {fmtDate(s.session_date)}, {fmtClock(s.time_start)}</p>
+        </Band>
+        <div className="section stack">
+          <div className="card stack small">
+            <p>{peso(fee)} is held from your wallet as a deposit.</p>
+            <p>If someone cancels, you move in automatically and the deposit pays for your spot.</p>
+            <p>If no spot opens, or you leave the waitlist, the deposit goes back to your wallet.</p>
+            <p className="muted">Guests can be added once you&apos;re in.</p>
+          </div>
+          {bal0 >= fee
+            ? <button className="btn pink" disabled={busy} onClick={() => { const why = profileProblem(profile); if (why) { toast(why, true); return; } withRules(join); }}>{busy ? 'Joining…' : `Join the waitlist, ${peso(fee)} from wallet`}</button>
+            : <><p className="small">Your wallet has {peso(bal0)}. Top up {peso(fee - bal0)} or more to join.</p><Link className="btn pink" href={`/topup/?amount=${Math.ceil(fee - bal0)}`}>Top up my wallet</Link></>}
+        </div>
+        {askRules && <RulesSheet onClose={() => setAskRules(null)} onAccept={() => { const go = askRules; setRulesOk(true); setAskRules(null); go(); }} />}
+      </>
+    );
+  }
 
   const name = profile?.full_name ?? '';
   const total = Number(s.fee) * (guest ? 2 : 1);
@@ -127,9 +165,10 @@ export default function Book() {
           <div className="total"><span>{due > 0 ? 'To pay by GCash' : 'To pay now'}</span><span className="num">{peso(due)}</span></div>
         </div>
         {due === 0
-          ? <button className="btn pink" disabled={busy} onClick={() => book(null, '')}>{busy ? 'Booking…' : `Pay ${peso(total)} from wallet`}</button>
-          : <button className="btn pink" onClick={() => { if (guest && !guestName.trim()) { toast('Add your guest\'s full name.', true); return; } setStep('gcash'); }}>Continue to GCash</button>}
+          ? <button className="btn pink" disabled={busy} onClick={() => withRules(() => book(null, ''))}>{busy ? 'Booking…' : `Pay ${peso(total)} from wallet`}</button>
+          : <button className="btn pink" onClick={() => { if (guest && !guestName.trim()) { toast('Add your guest\'s full name.', true); return; } withRules(() => setStep('gcash')); }}>Continue to GCash</button>}
       </div>
+      {askRules && <RulesSheet onClose={() => setAskRules(null)} onAccept={() => { const go = askRules; setRulesOk(true); setAskRules(null); go(); }} />}
     </>
   );
 }

@@ -1,16 +1,33 @@
 'use client';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { useMe } from '@/lib/me';
-import { IS_DEMO } from '@/lib/supabase';
+import { IS_DEMO, sb } from '@/lib/supabase';
+import { CLASSIC_URL } from '@/lib/classic';
 import { peso } from '@/lib/format';
 import { Icon } from './Icon';
 import { registerSw } from '@/lib/push';
 
 export function Header() {
   const { profile, userId, ready, wallet } = useMe();
+  const router = useRouter();
   useEffect(() => { registerSw(); }, []);
+  // A password-reset link signs the member in; send them to set the new password.
+  useEffect(() => {
+    if (/type=recovery/.test(location.hash)) { try { sessionStorage.setItem('mdp-recovery', '1'); } catch { /* */ } }
+    const { data } = sb().auth.onAuthStateChange((ev) => { if (ev === 'PASSWORD_RECOVERY') router.replace('/reset/'); });
+    let rec = false; try { rec = sessionStorage.getItem('mdp-recovery') === '1'; sessionStorage.removeItem('mdp-recovery'); } catch { /* */ }
+    if (rec) router.replace('/reset/');
+    return () => data.subscription.unsubscribe();
+  }, [router]);
+  // Links from the old app: ?s=<session> (posted on Reclub and Viber) and admin invites.
+  useEffect(() => {
+    const q = new URLSearchParams(location.search);
+    const s = q.get('s');
+    if (location.pathname === '/' && s && /^[0-9a-f-]{36}$/i.test(s)) { router.replace('/s/?id=' + s); return; }
+    if (q.get('invite')) location.replace(CLASSIC_URL + '/' + location.search);
+  }, [router]);
   // Back from TechPay: say what happened and return to where the payment started.
   useEffect(() => {
     const h = location.hash;

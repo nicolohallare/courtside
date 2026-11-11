@@ -3,7 +3,11 @@ import Link from 'next/link';
 import { DuprLogo, DuprTag } from '@/components/Dupr';
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { fn, sb } from '@/lib/supabase';
+import { fn, mdpApi, sb } from '@/lib/supabase';
+import { nameProblem, normPhone } from '@/lib/me';
+import { CLASSIC_URL } from '@/lib/classic';
+import { Feedback } from '@/components/Feedback';
+import { RulesSheet } from '@/components/Rules';
 import { useMe } from '@/lib/me';
 import { peso, rating } from '@/lib/format';
 import { Band, Empty, Loading, Sheet, useToast } from '@/components/Shell';
@@ -16,7 +20,20 @@ interface Dupr { connected: boolean; env?: string; dupr_id?: string; doubles?: n
 export default function Me() {
   const router = useRouter();
   const toast = useToast();
-  const { userId, ready, profile, wallet } = useMe();
+  const { userId, ready, profile, wallet, reload } = useMe();
+  const [edit, setEdit] = useState<{ name: string; phone: string } | null>(null);
+  const [fb, setFb] = useState(false);
+  const [rules, setRules] = useState(false);
+  useEffect(() => { if (location.hash === '#profile' && profile) setEdit({ name: profile.full_name ?? '', phone: profile.phone ?? '' }); }, [profile]);
+  async function saveProfile() {
+    if (!edit) return;
+    const np = nameProblem(edit.name); if (np) { toast(np, true); return; }
+    const ph = normPhone(edit.phone); if (!ph) { toast('Enter a Philippine mobile number, like 0917 123 4567.', true); return; }
+    setSaving('profile');
+    try { await mdpApi('update-profile', '', { method: 'PATCH', body: { full_name: edit.name.trim().replace(/\s+/g, ' '), phone: ph, dupr_id: profile?.dupr_id ?? '' } }); toast('Saved'); setEdit(null); reload(); }
+    catch (e) { toast((e as Error).message, true); }
+    setSaving('');
+  }
   const [dupr, setDupr] = useState<Dupr | null>(null);
   const [sso, setSso] = useState<string | null>(null);
   const [saving, setSaving] = useState('');
@@ -66,7 +83,7 @@ export default function Me() {
           <div className={'shield' + (d ? '' : ' nr')}><span className="num">{d ? Number(d).toFixed(2) : 'NR'}</span><DuprLogo h={11} light={!d} /><small>Doubles</small></div>
           <div style={{ minWidth: 0 }}>
             <h1 className="h2" style={{ color: '#fff' }}>{profile?.full_name ?? '…'}</h1>
-            <p className="sub">{TIER[profile?.access_tier ?? ''] ?? 'Member'}{profile?.is_varsity ? ', Varsity' : ''}{profile?.super_admin ? ', super admin' : profile?.is_admin ? ', admin' : ''}</p>
+            <p className="sub">{TIER[profile?.access_tier ?? ''] ?? 'Member'}{profile?.is_varsity && profile?.access_tier !== 'varsity' ? ', Varsity' : ''}{profile?.super_admin ? ', super admin' : profile?.is_admin ? ', admin' : ''}</p>
             <p className="sub">Singles {rating(dupr?.connected ? dupr.singles : profile?.dupr_singles)}</p>
           </div>
         </div>
@@ -102,7 +119,11 @@ export default function Me() {
           <Link href="/bookings/"><Icon name="ticket" /><span className="grow">Bookings and payments</span><Icon name="chev" className="chev" /></Link>
           <div><Icon name="bell" /><span className="grow">Notifications<br /><span className="small muted">{push === 'on' ? 'On for this phone' : push === 'needs-install' ? 'On iPhone, add the app to your Home Screen first (Share, then Add to Home Screen)' : push === 'blocked' ? 'Blocked. Allow them in your phone\'s settings' : push === 'unsupported' ? 'This browser can\'t show notifications' : 'Payments approved, spots opening, your turn on court'}</span></span>
             {push === 'off' && <button className="btn sm pink inline" onClick={enablePush}>Turn on</button>}</div>
-          <div><Icon name="info" /><span className="grow">Mobile</span><span className="muted">{profile?.phone || 'Not set'}</span></div>
+          <button onClick={() => setEdit({ name: profile?.full_name ?? '', phone: profile?.phone ?? '' })} style={{ width: '100%', textAlign: 'left' }}><Icon name="user" /><span className="grow">Name and mobile<br /><span className="small muted">{profile?.phone || 'Mobile not set yet'}</span></span><Icon name="chev" className="chev" /></button>
+          <Link href="/topup/"><Icon name="wallet" /><span className="grow">Top up my wallet</span><Icon name="chev" className="chev" /></Link>
+          <a href={CLASSIC_URL + '/?tab=training'}><Icon name="trophy" /><span className="grow">Coaching<br /><span className="small muted">Book and pay for coaching (opens the classic app)</span></span><Icon name="chev" className="chev" /></a>
+          <button onClick={() => setRules(true)} style={{ width: '100%', textAlign: 'left' }}><Icon name="info" /><span className="grow">House rules</span><Icon name="chev" className="chev" /></button>
+          <button onClick={() => setFb(true)} style={{ width: '100%', textAlign: 'left' }}><Icon name="bell" /><span className="grow">Report a problem or send feedback</span><Icon name="chev" className="chev" /></button>
           <button onClick={async () => { await sb().auth.signOut(); router.push('/'); }} style={{ width: '100%', textAlign: 'left' }}><Icon name="out" /><span className="grow">Sign out</span></button>
         </div>
       </div>
@@ -117,6 +138,16 @@ export default function Me() {
           <p className="small muted" style={{ marginTop: 8 }}>DUPR remembers the last account you used in this browser. To use a different one, <a className="link" href={dupr?.env === 'prod' ? 'https://dashboard.dupr.com' : 'https://uat.dupr.gg'} target="_blank" rel="noreferrer">log out on DUPR</a>, then close this and tap Connect again.</p>
         </Sheet>
       )}
+      {edit && (
+        <Sheet title="Name and mobile" onClose={() => setEdit(null)}>
+          <label className="field"><span>Full name</span><input className="input" autoComplete="name" value={edit.name} onChange={(e) => setEdit({ ...edit, name: e.target.value })} placeholder="First and last name, no initials" /></label>
+          <label className="field"><span>Mobile number</span><input className="input" type="tel" inputMode="tel" value={edit.phone} onChange={(e) => setEdit({ ...edit, phone: e.target.value })} placeholder="0917 123 4567" /></label>
+          <p className="small muted" style={{ marginBottom: 12 }}>Hosts see these on the roster. Email {profile?.email ?? ''} can&apos;t be changed here.</p>
+          <button className="btn pink" disabled={saving === 'profile'} onClick={saveProfile}>{saving === 'profile' ? 'Saving…' : 'Save'}</button>
+        </Sheet>
+      )}
+      {fb && <Feedback onClose={() => setFb(false)} />}
+      {rules && <RulesSheet onClose={() => setRules(false)} />}
       {confirmOff && (
         <Sheet title="Disconnect DUPR?" onClose={() => setConfirmOff(false)}>
           <p className="sub" style={{ marginBottom: 14 }}>Your rating stops updating here, and you can&apos;t join DUPR nights until you connect again. Games already sent stay on DUPR.</p>
