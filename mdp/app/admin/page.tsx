@@ -102,8 +102,9 @@ function Today() {
       <div className="section">
         <div className="section-head"><span className="h3">More tools</span></div>
         <div className="list">
+          <Link href="/admin/members/"><Icon name="users" /><span className="grow">Members and tiers</span><Icon name="chev" className="chev" /></Link>
           <Link href="/admin/feedback/"><Icon name="bell" /><span className="grow">Feedback</span><Icon name="chev" className="chev" /></Link>
-          <a href={CLASSIC_URL + '/#admin'} target="_blank" rel="noopener"><Icon name="link" /><span className="grow">Members, coaching, financials, venues<br /><span className="small muted">In the classic app for now. Same login.</span></span><Icon name="chev" className="chev" /></a>
+          <a href={CLASSIC_URL + '/#admin'} target="_blank" rel="noopener"><Icon name="link" /><span className="grow">Coaching, financials, venues<br /><span className="small muted">In the classic app for now. Same login.</span></span><Icon name="chev" className="chev" /></a>
         </div>
       </div>
       <div style={{ height: 24 }} />
