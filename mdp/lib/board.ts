@@ -11,10 +11,12 @@ export interface BPlayer {
   id: string; ref_no: number | null; name: string; rating: number | null; linked: boolean;
   level: string | null; stack: string | null; status: 'here' | 'playing' | 'resting' | 'no_show' | 'out';
   queued_at: string | null; partner_id: string | null; games: number;
+  /** Court groups (Chris's format): the player's group, the court line they wait in, games stayed as a winner. */
+  grp?: number | null; line?: number | null; streak?: number;
 }
-export interface BLive { id: string; court: number; game_no: number; started_at: string; seats: (string | null)[] }
+export interface BLive { id: string; court: number; game_no: number; started_at: string; seats: (string | null)[]; rep_a?: number | null; rep_b?: number | null; rep_by?: string | null; rep_name?: string | null }
 export interface BGame { id: string; game_no: number; court: number | null; score_a: number; score_b: number; status: string; seats: (string | null)[] }
-export interface BSession { id: string; label: string; venue: string; session_date: string; time_start: string; time_end: string; courts: number; is_dupr: boolean; board_open: boolean; is_admin: boolean; server_now: string; me: string | null }
+export interface BSession { id: string; label: string; venue: string; session_date: string; time_start: string; time_end: string; courts: number; is_dupr: boolean; board_open: boolean; is_admin: boolean; server_now: string; me: string | null; format?: 'groups' | 'levels'; groups?: number; open_court?: number | null }
 export interface Board { session: BSession; players: BPlayer[]; live: BLive[]; games: BGame[] }
 
 export const LEVELS: { k: string; label: string; range: string }[] = [
@@ -27,6 +29,21 @@ export const levelName = (k: string | null) => LEVELS.find((l) => l.k === (k ?? 
 export const stackName = (s: string | null) => (s === 'W' ? 'winners' : 'losers');
 
 type Unit = { ids: string[]; level: string; stack: string; t: number };
+
+// ── Court groups (Chris's format) ──────────────────────────────────────────
+export const groupName = (g: number | null | undefined) => (g ? 'Group ' + 'ABCDEFGH'[g - 1] : 'No group yet');
+/** Who waits for a court, in order, as units (a pair of partners is one unit). */
+export function lineUnits(players: BPlayer[], court: number): string[][] {
+  const w = players.filter((p) => p.status === 'here' && p.line === court).sort((a, b) => (a.queued_at ?? '').localeCompare(b.queued_at ?? ''));
+  const seen = new Set<string>(); const out: string[][] = [];
+  for (const p of w) {
+    if (seen.has(p.id)) continue;
+    const mate = p.partner_id ? w.find((x) => x.id === p.partner_id && x.partner_id === p.id) : undefined;
+    const u = mate ? [p.id, mate.id] : [p.id];
+    u.forEach((x) => seen.add(x)); out.push(u);
+  }
+  return out;
+}
 const ts = (p: BPlayer) => (p.queued_at ? Date.parse(p.queued_at) : 0);
 
 /** Waiting players as queue units (a fixed pair is one unit), in queue order. */

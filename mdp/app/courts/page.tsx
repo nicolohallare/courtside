@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fn, rpc } from '@/lib/supabase';
 import { useMe } from '@/lib/me';
 import { fmtClock, initials } from '@/lib/format';
-import { LEVELS, firstName, levelName, minutesSince, myPlace, stackName, suggest, units, type Board, type BLive, type BPlayer, type Suggestion } from '@/lib/board';
+import { LEVELS, firstName, groupName, levelName, lineUnits, minutesSince, myPlace, stackName, suggest, units, type Board, type BLive, type BPlayer, type Suggestion } from '@/lib/board';
 import { Band, Empty, Loading, Sheet, useToast } from '@/components/Shell';
 import { Icon } from '@/components/Icon';
 
@@ -93,10 +93,17 @@ export default function Courts() {
   const courts = Array.from({ length: s?.courts ?? 0 }, (_, i) => i + 1);
   const liveOn = (n: number) => b?.live.find((l) => l.court === n);
   const run = mode === 'run' && !!s?.is_admin;
+  // Chris's format: groups by DUPR, one court per group, the last court open to all.
+  const groups = s?.format === 'groups';
+  const openCourt = s?.open_court ?? null;
+  const courtLabel = (n: number) => (groups ? (n === openCourt ? 'Open' : groupName(n)) : '');
+  const needGroups = groups && !!b && b.players.some((p) => ['here', 'playing', 'resting'].includes(p.status)) && !b.players.some((p) => p.grp);
+  const mySide = (lv: BLive) => (me ? (lv.seats.slice(0, 2).includes(me.id) ? 1 : lv.seats.slice(2).includes(me.id) ? 2 : 0) : 0);
+  const repSide = (lv: BLive) => (lv.rep_by ? (lv.seats.slice(0, 2).includes(lv.rep_by) ? 1 : 2) : 0);
 
   // Suggested four for each free court, without double-booking a player across courts.
   const plans = new Map<number, Suggestion>();
-  if (b && run) {
+  if (b && run && !groups) {
     const taken = new Set<string>();
     for (const n of courts) {
       if (liveOn(n)) continue;
@@ -130,6 +137,13 @@ export default function Courts() {
           </div>
         )}
 
+        {run && groups && (
+          <div className="status-card" style={{ marginTop: 14 }}>
+            <div className="h3" style={{ color: '#fff' }}>{needGroups ? 'Make tonight\'s groups' : 'Groups are set'}</div>
+            <p className="sub" style={{ margin: '4px 0 12px' }}>{needGroups ? 'Check everyone in, then split them by DUPR: top half on Court 1, bottom half on Court 2' + (openCourt ? `, Court ${openCourt} open to all.` : '.') : 'Late arrivals join the group their rating fits. Tap a name to move someone.'}</p>
+            <button className={'btn ' + (needGroups ? 'pink' : 'sm quiet')} style={needGroups ? undefined : { background: 'rgba(232,223,200,.12)', color: 'var(--cream)' }} disabled={busy} onClick={() => { if (needGroups || window.confirm('Split everyone who is off court into groups again?')) call('board_make_groups', { p_session: sid }, 'Groups made'); }}>{needGroups ? 'Make groups' : 'Re-split groups'}</button>
+          </div>
+        )}
         {s && !run && (
           <div className="status-card" style={{ marginTop: 14 }}>
             {!me || me.status === 'out' || me.status === 'no_show' ? (
@@ -143,6 +157,19 @@ export default function Courts() {
                 <div className="small">You&apos;re on</div>
                 <div className="big">Court {myLive.court}</div>
                 <p className="sub" style={{ marginTop: 6 }}>With {firstName(nameOf(myLive.seats.slice(0, 2).includes(me.id) ? myLive.seats.find((x, i) => i < 2 && x !== me.id) ?? null : myLive.seats.find((x, i) => i >= 2 && x !== me.id) ?? null))}, against {(myLive.seats.slice(0, 2).includes(me.id) ? myLive.seats.slice(2) : myLive.seats.slice(0, 2)).map((x) => firstName(nameOf(x))).join(' and ')}</p>
+                {groups && (myLive.rep_by == null ? (
+                  <button className="btn pink" style={{ marginTop: 12 }} onClick={() => setSheet({ k: 'finish', live: myLive })}>Enter the score</button>
+                ) : repSide(myLive) === mySide(myLive) ? (
+                  <p className="sub" style={{ marginTop: 12 }}>Score {myLive.rep_a}–{myLive.rep_b} entered. Waiting for the other team to confirm.</p>
+                ) : (
+                  <div style={{ marginTop: 12 }}>
+                    <p className="sub">{firstName(myLive.rep_name ?? '')} entered {myLive.rep_a}–{myLive.rep_b}. Is that right?</p>
+                    <div className="btn-row" style={{ marginTop: 8 }}>
+                      <button className="btn pink" disabled={busy} onClick={() => call('board_confirm', { p_live: myLive.id }, 'Score confirmed. Next game is called.')}>Confirm</button>
+                      <button className="btn sm quiet" style={{ background: 'rgba(232,223,200,.12)', color: 'var(--cream)' }} onClick={() => setSheet({ k: 'finish', live: myLive })}>Fix it</button>
+                    </div>
+                  </div>
+                ))}
               </>
             ) : me.status === 'resting' ? (
               <>
@@ -150,7 +177,22 @@ export default function Courts() {
                 <p className="sub" style={{ margin: '4px 0 12px' }}>You keep your place in line while you rest.</p>
                 <button className="btn pink" disabled={busy} onClick={async () => { if (b?.session.is_dupr) await fn('dupr', 'entitlements', {}).catch(() => null); call('board_check_in', { p_session: sid, p_status: 'here' }, 'Welcome back'); }}>I&apos;m back</button>
               </>
-            ) : (
+            ) : groups && me.grp ? (() => {
+              const line = me.line ?? me.grp; const ups = lineUnits(b!.players, line);
+              const pos = ups.findIndex((u) => u.includes(me.id)) + 1;
+              return (
+                <>
+                  <div className="small">{groupName(me.grp)}, waiting for Court {line}{line === openCourt ? ' (open)' : ''}</div>
+                  <div className="big">{pos > 0 && pos <= 2 && !liveOn(line) ? 'Next up' : <>#{pos || '–'}<small> in line</small></>}</div>
+                  <p className="sub" style={{ marginTop: 6 }}>{me.games} game{me.games === 1 ? '' : 's'} played tonight. Winners stay one more game, then split.</p>
+                  <div className="btn-row" style={{ marginTop: 12, flexWrap: 'wrap' }}>
+                    {openCourt && <button className="btn sm quiet" style={{ background: 'rgba(232,223,200,.12)', color: 'var(--cream)' }} disabled={busy} onClick={() => call('board_join_line', { p_session: sid, p_court: line === openCourt ? me.grp : openCourt }, line === openCourt ? `Back in line for Court ${me.grp}` : `In line for Court ${openCourt}`)}>{line === openCourt ? `Back to Court ${me.grp}` : `Play on Court ${openCourt} (open)`}</button>}
+                    <button className="btn sm quiet" style={{ background: 'rgba(232,223,200,.12)', color: 'var(--cream)' }} onClick={() => setSheet({ k: 'partner' })}>{partner ? `With ${firstName(partner.name)}` : 'Pick a partner'}</button>
+                    <button className="btn sm quiet" style={{ background: 'rgba(232,223,200,.12)', color: 'var(--cream)' }} disabled={busy} onClick={() => call('board_check_in', { p_session: sid, p_status: 'resting' }, 'Enjoy the break')}>Take a break</button>
+                  </div>
+                </>
+              );
+            })() : (
               <>
                 <div className="small">{place?.next ? 'You\'re in the next game for your group' : 'Your place in line'}</div>
                 <div className="big">{place?.next ? 'Next up' : <>#{place?.pos ?? '–'}<small> in line</small></>}</div>
@@ -177,19 +219,32 @@ export default function Courts() {
                 const lv = liveOn(n), plan = plans.get(n);
                 if (lv) return (
                   <div key={n} className="court">
-                    <div className="cn"><span>Court {n}</span><span className="mins">{minutesSince(lv.started_at, offset)} min</span></div>
+                    <div className="cn"><span>Court {n}{groups ? ` · ${courtLabel(n)}` : ''}</span><span className="mins">{minutesSince(lv.started_at, offset)} min</span></div>
                     <div className="surface">
                       <div className="side">{sideNames(lv.seats.slice(0, 2))}</div>
                       <div className="net" />
                       <div className="side">{sideNames(lv.seats.slice(2))}</div>
                     </div>
-                    {run && <div className="act"><button className="btn light" onClick={() => setSheet({ k: 'finish', live: lv })}>Game over</button></div>}
+                    {groups && lv.rep_by && <div className="next-four" style={{ marginTop: 8 }}>{lv.rep_a}–{lv.rep_b} entered by {firstName(lv.rep_name ?? '')}, waiting to confirm</div>}
+                    {run && <div className="act btn-row">
+                      {groups && lv.rep_by && <button className="btn light" disabled={busy} onClick={() => call('board_confirm', { p_live: lv.id }, `Court ${n}: score confirmed`)}>Confirm {lv.rep_a}–{lv.rep_b}</button>}
+                      <button className="btn light" onClick={() => setSheet({ k: 'finish', live: lv })}>{groups && lv.rep_by ? 'Fix' : 'Game over'}</button>
+                    </div>}
                   </div>
                 );
                 return (
                   <div key={n} className={'court free' + (run ? '' : ' quiet')}>
-                    <div className="cn"><span>Court {n}</span><span>Free</span></div>
-                    {run && plan ? (
+                    <div className="cn"><span>Court {n}{groups ? ` · ${courtLabel(n)}` : ''}</span><span>Free</span></div>
+                    {groups ? (() => {
+                      const ups = lineUnits(b.players, n); const waiting = ups.flat().length;
+                      return run && waiting >= 4 ? (
+                        <>
+                          <div className="next-four"><b>Next:</b> {ups.flat().slice(0, 4).map((x) => firstName(nameOf(x))).join(', ')}</div>
+                          <div style={{ flex: 1 }} />
+                          <div className="act"><button className="btn" disabled={busy} onClick={() => call('board_next_game', { p_session: sid, p_court: n }, `Court ${n} started`)}>Start next game</button></div>
+                        </>
+                      ) : <div className="next-four" style={{ marginTop: 10 }}>{waiting >= 4 ? 'Next game starts soon' : `${waiting} waiting, needs 4`}</div>;
+                    })() : run && plan ? (
                       <>
                         <div className="next-four"><b>{plan.label}</b><br />{plan.seats.slice(0, 2).map((x) => firstName(nameOf(x))).join(' & ')} vs {plan.seats.slice(2).map((x) => firstName(nameOf(x))).join(' & ')}</div>
                         <div style={{ flex: 1 }} />
@@ -208,9 +263,26 @@ export default function Courts() {
           </div>
 
           <div className="section">
-            <div className="section-head"><span className="h3">In line</span><span className="sub">{run ? 'Tap a name: level, break, partner' : 'Grouped by level'}</span></div>
+            <div className="section-head"><span className="h3">In line</span><span className="sub">{run ? (groups ? 'Tap a name: group, break, partner' : 'Tap a name: level, break, partner') : groups ? 'One line per court' : 'Grouped by level'}</span></div>
             <div className="stack">
-              {LEVELS.map((lv) => {
+              {groups && courts.map((n) => {
+                const ups = lineUnits(b.players, n);
+                if (!ups.length) return null;
+                return (
+                  <div key={'l' + n} className="queue">
+                    <div className="qh"><span>Court {n} · {courtLabel(n)}</span><span className="muted">{ups.flat().length} waiting</span></div>
+                    {ups.map((u, i) => (
+                      <div key={u[0]} className={'qp' + (me && u.includes(me.id) ? ' me' : '')}>
+                        <span className="pos">{i + 1}</span>
+                        <span className="nm">{u.map((x) => (run ? <button key={x} className="tapname" onClick={() => setSheet({ k: 'player', p: byId.get(x)! })}>{u.length === 2 ? firstName(byId.get(x)?.name ?? '') : byId.get(x)?.name}</button> : <span key={x}>{u.length === 2 ? firstName(byId.get(x)?.name ?? '') : byId.get(x)?.name}</span>)).reduce<React.ReactNode[]>((a, x, j) => (j ? [...a, ' & ', x] : [x]), [])}</span>
+                        {u.length === 2 && <span className="pair">Partners</span>}
+                        {n === openCourt && <span className="tag off">{groupName(byId.get(u[0])?.grp)}</span>}
+                      </div>
+                    ))}
+                  </div>
+                );
+              })}
+              {!groups && LEVELS.map((lv) => {
                 const us = units(b.players).filter((u) => u.level === lv.k);
                 if (!us.length) return null;
                 let pos = 0;
@@ -240,7 +312,7 @@ export default function Courts() {
                   ))}
                 </div>
               )}
-              {units(b.players).length === 0 && !b.players.some((p) => p.status === 'resting') && <div className="card sub">No one is waiting. Players appear here when they tap I&apos;m here.</div>}
+              {!groups && units(b.players).length === 0 && !b.players.some((p) => p.status === 'resting') && <div className="card sub">No one is waiting. Players appear here when they tap I&apos;m here.</div>}
             </div>
           </div>
 
@@ -265,8 +337,11 @@ export default function Courts() {
         </>
       )}
 
-      {sheet?.k === 'finish' && b && <FinishSheet live={sheet.live} dupr={b.session.is_dupr} nameOf={nameOf} busy={busy} onClose={() => setSheet(null)}
-        onScore={(a, z) => call('dupr_board_finish', { p_live: sheet.live.id, p_score_a: a, p_score_b: z, p_force: false }, `Court ${sheet.live.court} is free`)}
+      {sheet?.k === 'finish' && b && <FinishSheet live={sheet.live} dupr={b.session.is_dupr || groups} nameOf={nameOf} busy={busy} onClose={() => setSheet(null)}
+        canCancel={!!s?.is_admin} note={groups && !s?.is_admin ? 'Someone from the other team confirms the score, then the next game is called.' : undefined}
+        onScore={(a, z) => groups
+          ? call('board_report', { p_live: sheet.live.id, p_a: a, p_b: z }, s?.is_admin ? `Court ${sheet.live.court}: next game called` : 'Score sent. The other team confirms it.')
+          : call('dupr_board_finish', { p_live: sheet.live.id, p_score_a: a, p_score_b: z, p_force: false }, `Court ${sheet.live.court} is free`)}
         onWinner={(w) => call('board_finish_quick', { p_live: sheet.live.id, p_winner: w }, `Court ${sheet.live.court} is free`)}
         onCancel={() => call('dupr_board_cancel', { p_live: sheet.live.id }, 'Game cancelled. Players are back in line.')} />}
 
@@ -294,9 +369,13 @@ export default function Courts() {
         return (
           <Sheet title={p.name} onClose={() => setSheet(null)}>
             <p className="sub" style={{ marginBottom: 12 }}>{p.rating ? `DUPR ${Number(p.rating).toFixed(2)}` : 'No DUPR rating'}{!p.linked && s?.is_dupr ? '. DUPR not connected, so games can\'t be sent for them.' : ''}. {p.games} games tonight.</p>
-            <div className="field"><span>Level</span>
+            {groups ? (
+              <div className="field"><span>Group</span>
+                <div className="seg">{Array.from({ length: s?.groups ?? 2 }, (_, i) => i + 1).map((g) => <button key={g} className={p.grp === g ? 'on' : ''} disabled={busy} onClick={() => call('board_move_group', { p_player: p.id, p_grp: g }, `${firstName(p.name)} is in ${groupName(g)}`)}>{groupName(g)}</button>)}</div>
+              </div>
+            ) : <div className="field"><span>Level</span>
               <div className="seg">{LEVELS.filter((l) => l.k !== '?').map((l) => <button key={l.k} className={p.level === l.k ? 'on' : ''} disabled={busy} onClick={() => call('dupr_board_move', { p_player: p.id, p_level: l.k, p_stack: null, p_front: false })}>{l.label.replace('-Intermediate', '-Int')}</button>)}</div>
-            </div>
+            </div>}
             <div className="field"><span>Status</span>
               <div className="btn-row">
                 {p.status !== 'here' && <button className="btn sm green" disabled={busy} onClick={() => call('dupr_board_status', { p_player: p.id, p_status: 'here' })}>Here</button>}
@@ -319,8 +398,8 @@ export default function Courts() {
   );
 }
 
-function FinishSheet({ live, dupr, nameOf, busy, onClose, onScore, onWinner, onCancel }: {
-  live: BLive; dupr: boolean; nameOf: (id: string | null) => string; busy: boolean; onClose: () => void;
+function FinishSheet({ live, dupr, nameOf, busy, onClose, onScore, onWinner, onCancel, canCancel = true, note }: {
+  live: BLive; dupr: boolean; nameOf: (id: string | null) => string; busy: boolean; onClose: () => void; canCancel?: boolean; note?: string;
   onScore: (a: number, b: number) => void; onWinner: (w: 'A' | 'B') => void; onCancel: () => void;
 }) {
   const [a, setA] = useState(dupr ? 11 : 0), [z, setZ] = useState(dupr ? 0 : 0);
@@ -343,7 +422,7 @@ function FinishSheet({ live, dupr, nameOf, busy, onClose, onScore, onWinner, onC
           {box(team(live.seats.slice(0, 2)), a, setA)}
           {box(team(live.seats.slice(2)), z, setZ)}
           <button className="btn pink" style={{ marginTop: 14 }} disabled={busy || a === z} onClick={() => onScore(a, z)}>{a === z ? 'Scores can\'t tie' : `Save ${a}–${z}`}</button>
-          {dupr && <p className="small muted" style={{ textAlign: 'center', marginTop: 8 }}>The score is checked by MDP before it goes to DUPR.</p>}
+          <p className="small muted" style={{ textAlign: 'center', marginTop: 8 }}>{note ?? (dupr ? 'The score is checked by MDP before it goes to DUPR.' : '')}</p>
         </>
       ) : (
         <div className="stack">
@@ -351,7 +430,7 @@ function FinishSheet({ live, dupr, nameOf, busy, onClose, onScore, onWinner, onC
           <button className="btn green" disabled={busy} onClick={() => onWinner('B')}>{team(live.seats.slice(2))} won</button>
         </div>
       )}
-      <button className="btn ghost" style={{ marginTop: 12 }} disabled={busy} onClick={onCancel}>Cancel game, nobody played</button>
+      {canCancel && <button className="btn ghost" style={{ marginTop: 12 }} disabled={busy} onClick={onCancel}>Cancel game, nobody played</button>}
     </Sheet>
   );
 }

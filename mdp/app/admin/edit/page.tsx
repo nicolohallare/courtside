@@ -159,8 +159,8 @@ function Form() {
 
         <label className="field"><span>DUPR</span>
           <select className="input" value={String(f.dupr_access)} onChange={set('dupr_access')}>
-            <option value="">Anyone can join</option>
-            <option value="BASIC_L1">Needs a DUPR account (games sent to DUPR)</option>
+            <option value="BASIC_L1">DUPR only (games sent to DUPR; guests need DUPR too)</option>
+            <option value="">Open to all, no DUPR needed</option>
             <option value="PREMIUM_L1">DUPR+ members only</option>
           </select>
         </label>
