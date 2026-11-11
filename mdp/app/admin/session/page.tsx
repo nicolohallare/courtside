@@ -7,6 +7,7 @@ import { Empty, Loading, Sheet, useToast } from '@/components/Shell';
 import { Icon } from '@/components/Icon';
 import { fmtClock, fmtDate, manilaToday, peso, rating } from '@/lib/format';
 import { mdpApi } from '@/lib/supabase';
+import { announcement, shareText } from '@/lib/announce';
 import { isDraft, loadAdminSessions, loadCounts, needsWhy, nextSameWeekday, setPayment, type AdminSess, type Counts, type Player } from '@/lib/admin';
 
 export default function AdminSession() {
@@ -22,12 +23,17 @@ function Inner() {
   const [s, setS] = useState<AdminSess | null | undefined>(undefined);
   const [c, setC] = useState<Counts | null>(null);
   const [busy, setBusy] = useState(false);
-  const [sheet, setSheet] = useState<null | { k: 'player'; p: Player } | { k: 'add' } | { k: 'cancel' } | { k: 'remove'; p: Player } | { k: 'reject'; p: Player }>(null);
+  const [sheet, setSheet] = useState<null | { k: 'player'; p: Player } | { k: 'add' } | { k: 'cancel' } | { k: 'remove'; p: Player } | { k: 'reject'; p: Player } | { k: 'share' }>(null);
+  const [post, setPost] = useState('');
   const [note, setNote] = useState('');
   const [q, setQ] = useState('');
   const [found, setFound] = useState<Member[]>([]);
 
   useEffect(() => { setId(new URLSearchParams(location.search).get('id')); }, []);
+  // Right after a session is created, offer the announcement straight away.
+  useEffect(() => {
+    if (s && new URLSearchParams(location.search).get('new') === '1' && !sheet) { setPost(announcement(s)); setSheet({ k: 'share' }); history.replaceState(null, '', '/admin/session/?id=' + s.id); }
+  }, [s]); // eslint-disable-line react-hooks/exhaustive-deps
   const load = useCallback(async () => {
     if (!id) return;
     const [list, counts] = await Promise.all([loadAdminSessions(), loadCounts()]);
@@ -82,6 +88,7 @@ function Inner() {
         {!s.is_cancelled && (
           <div className="act-grid">
             {s.session_date === today && <Link className="btn sm pink" href={'/courts/?s=' + s.id}><Icon name="court" />Run the courts</Link>}
+            <button className="btn sm dim" onClick={() => { setPost(announcement(s)); setSheet({ k: 'share' }); }}><Icon name="share" />Share</button>
             <Link className="btn sm dim" href={'/admin/edit/?id=' + s.id}>Edit</Link>
             <Link className="btn sm dim" href={`/admin/edit/?from=${s.id}&date=${nextSameWeekday(s.session_date)}`}>Repeat next week</Link>
             <button className="btn sm dim" onClick={() => { setQ(''); setSheet({ k: 'add' }); }}><Icon name="plus" />Add player</button>
@@ -179,6 +186,17 @@ function Inner() {
               </button>
             ))}
             {found.length === 0 && <div className="small muted">{q ? 'No member by that name.' : 'Type a name.'}</div>}
+          </div>
+        </Sheet>
+      )}
+
+      {sheet?.k === 'share' && (
+        <Sheet title="Post this session" onClose={() => setSheet(null)}>
+          <p className="sub" style={{ marginBottom: 10 }}>{isDraft(s) ? 'Publish first, so the link works for members. ' : ''}Copy this into Reclub or your Viber group. You can edit it here first; the link takes players straight to booking.</p>
+          <textarea className="input" rows={14} value={post} onChange={(e) => setPost(e.target.value)} style={{ fontSize: 14, lineHeight: 1.45 }} />
+          <div className="btn-row" style={{ marginTop: 12 }}>
+            <button className="btn pink" onClick={async () => { const r = await shareText(post, s.label); toast(r === 'copied' ? 'Copied. Paste it in Reclub or Viber.' : r === 'shared' ? 'Shared' : 'Select the text and copy it', r === 'failed'); }}>Copy</button>
+            {typeof navigator !== 'undefined' && 'share' in navigator && <button className="btn ghost" onClick={() => navigator.share({ title: s.label, text: post }).catch(() => {})}>Share to an app</button>}
           </div>
         </Sheet>
       )}

@@ -107,7 +107,7 @@ function Form() {
         const made = await mdpApi<{ id: string }>('create-session', '', { method: 'POST', body });
         if (publish) await mdpApi('publish-session', '', { method: 'POST', body: { session_id: made.id } });
         toast(publish ? 'Published. Members can book when registration opens.' : 'Saved as a draft');
-        router.push('/admin/session/?id=' + made.id);
+        router.push('/admin/session/?id=' + made.id + (publish ? '&new=1' : ''));
       }
     } catch (e) { toast((e as Error).message, true); }
     setBusy(false);
