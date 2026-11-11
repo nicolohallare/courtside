@@ -16,7 +16,7 @@ export interface BPlayer {
 }
 export interface BLive { id: string; court: number; game_no: number; started_at: string; seats: (string | null)[]; rep_a?: number | null; rep_b?: number | null; rep_by?: string | null; rep_name?: string | null }
 export interface BGame { id: string; game_no: number; court: number | null; score_a: number; score_b: number; status: string; seats: (string | null)[] }
-export interface BSession { id: string; label: string; venue: string; session_date: string; time_start: string; time_end: string; courts: number; is_dupr: boolean; board_open: boolean; is_admin: boolean; server_now: string; me: string | null; format?: 'groups' | 'levels'; groups?: number; open_court?: number | null }
+export interface BSession { id: string; label: string; venue: string; session_date: string; time_start: string; time_end: string; courts: number; is_dupr: boolean; board_open: boolean; is_admin: boolean; server_now: string; me: string | null; format?: 'groups' | 'levels'; phase?: 'strict' | 'free'; groups?: number; open_court?: number | null }
 export interface Board { session: BSession; players: BPlayer[]; live: BLive[]; games: BGame[] }
 
 export const LEVELS: { k: string; label: string; range: string }[] = [

@@ -1,11 +1,11 @@
 -- Court groups (Chris's format, agreed Nov 11 2026) and scores entered by players.
 --
--- Format, for a session with 3 courts:
---   * Tonight's players are split by DUPR: top half = Group A (Court 1), bottom half = Group B (Court 2).
---     Court 3 is open to both groups. (With more courts: one group per court, the last court open.
---     With 1 or 2 courts: one group per court, no open court.)
---   * Late arrivals join the group their rating fits. A host can move anyone with a tap.
---   * Each court has its own line. A player is in one line at a time: their group's court, or the open court.
+-- Two phases (Chris, after the Nov 10 DUPR night: an open court pulled players off their own court):
+--   1. Strict courts: tonight's players are split by DUPR into one group per court (3 courts = top,
+--      middle and bottom), and each group plays only on its own court. Late arrivals join the group
+--      their rating fits. A host can move anyone with a tap.
+--   2. Free for all: the host switches when it's time (e.g. the last 1.5 hours at Pickle Drop) and
+--      every court takes the next four from one shared line. The host can switch back.
 --   * Players choose partners: a pair waits in line together and goes on court together.
 --   * Winners stay for ONE more game and split up (each winner partners someone new from the line);
 --     after that second game they go back in line. Losers go to the back of the line.
@@ -16,6 +16,7 @@
 -- DUPR (Nov 11): players only enter and confirm; a club director or organizer submits to DUPR.
 
 alter table sessions add column if not exists board_format text not null default 'groups' check (board_format in ('groups', 'levels'));
+alter table sessions add column if not exists board_phase text not null default 'strict' check (board_phase in ('strict', 'free'));
 alter table dupr_sheet_players add column if not exists grp smallint;
 alter table dupr_sheet_players add column if not exists line smallint;
 alter table dupr_sheet_players add column if not exists streak smallint not null default 0;
@@ -26,13 +27,28 @@ alter table dupr_live_games add column if not exists rep_at timestamptz;
 
 create or replace function _groups_count(p_session uuid) returns int
 language sql stable security definer set search_path = public as $$
-  select case when coalesce(courts, 3) >= 3 then coalesce(courts, 3) - 1 else greatest(coalesce(courts, 3), 1) end
-  from sessions where id = p_session;
+  select greatest(coalesce(courts, 3), 1) from sessions where id = p_session;
 $$;
+-- No open court any more (kept so older screens and calls keep working).
 create or replace function _open_court(p_session uuid) returns int
+language sql stable security definer set search_path = public as $$ select null::int; $$;
+-- The line a court takes players from: its own group's line, or the shared line (0) in free for all.
+create or replace function _line_for(p_session uuid, p_court int) returns int
 language sql stable security definer set search_path = public as $$
-  select case when coalesce(courts, 3) >= 3 then coalesce(courts, 3) end from sessions where id = p_session;
+  select case when board_phase = 'free' then 0 else p_court end from sessions where id = p_session;
 $$;
+
+-- A host switches between strict courts and free for all.
+create or replace function board_set_phase(p_session uuid, p_phase text) returns jsonb
+language plpgsql security definer set search_path = public as $$
+begin
+  perform _dupr_board_guard(p_session);
+  if p_phase not in ('strict', 'free') then raise exception 'Unknown phase'; end if;
+  update sessions set board_phase = p_phase where id = p_session;
+  update dupr_sheet_players set line = case when p_phase = 'free' then 0 else grp end, streak = 0
+   where session_id = p_session and status = 'here';
+  return jsonb_build_object('ok', true, 'phase', p_phase);
+end $$;
 create or replace function _sheet_rating(p_player uuid) returns numeric
 language sql stable security definer set search_path = public as $$
   select coalesce(p.dupr_doubles, 0) from dupr_sheet_players sp left join profiles p on p.id = sp.profile_id where sp.id = p_player;
@@ -68,7 +84,7 @@ begin
   from ranked r where r.id = sp.id;
   update dupr_sheet_players set line = grp, queued_at = coalesce(queued_at, now()), streak = 0
    where session_id = p_session and status = 'here';
-  update sessions set board_format = 'groups' where id = p_session;
+  update sessions set board_format = 'groups', board_phase = 'strict' where id = p_session;
   return jsonb_build_object('ok', true, 'groups', n, 'players', total);
 end $$;
 
@@ -80,8 +96,8 @@ begin
     if new.grp is null and exists (select 1 from dupr_sheet_players where session_id = new.session_id and grp is not null and id <> new.id) then
       new.grp := _fit_group(new.session_id, new.id);
     end if;
-    if new.grp is not null and coalesce(old.status, '') <> 'playing' and new.line is null then
-      new.line := new.grp;
+    if coalesce(old.status, '') <> 'playing' and new.line is null then
+      new.line := case when (select board_phase from sessions where id = new.session_id) = 'free' then 0 else new.grp end;
     end if;
   end if;
   if new.status in ('out', 'no_show', 'resting') then new.line := null; end if;
@@ -100,7 +116,7 @@ begin
   perform _dupr_board_guard(rec.session_id);
   if p_grp < 1 or p_grp > _groups_count(rec.session_id) then raise exception 'Pick a group'; end if;
   update dupr_sheet_players set grp = p_grp,
-    line = case when line is null or line = _open_court(rec.session_id) then line else p_grp end
+    line = case when line is null or line = 0 then line else p_grp end
    where id = p_player;
   return jsonb_build_object('ok', true);
 end $$;
@@ -113,8 +129,8 @@ begin
   select * into rec from dupr_sheet_players where session_id = p_session and profile_id = auth.uid();
   if rec.id is null then raise exception 'Check in first'; end if;
   if rec.status <> 'here' then raise exception 'You can change lines when you''re off court'; end if;
-  if p_court is distinct from rec.grp and p_court is distinct from _open_court(p_session) then
-    raise exception 'You can wait for your group''s court or the open court';
+  if p_court is distinct from _line_for(p_session, rec.grp) then
+    raise exception 'You wait for your group''s court';
   end if;
   update dupr_sheet_players set line = p_court, queued_at = now() where id = rec.id or (partner_id = rec.id and status = 'here');
   return jsonb_build_object('ok', true);
@@ -140,7 +156,7 @@ declare u record; need int; picked uuid[] := '{}'; seats uuid[]; i int; gno int;
 begin
   if exists (select 1 from dupr_live_games where session_id = p_session and court = p_court) then return null; end if;
   need := 4 - coalesce(array_length(p_stay, 1), 0);
-  for u in select * from _line_units(p_session, p_court) loop
+  for u in select * from _line_units(p_session, _line_for(p_session, p_court)) loop
     exit when coalesce(array_length(picked, 1), 0) >= need;
     if u.ids is null or u.ids && coalesce(p_stay, '{}'::uuid[]) then continue; end if;
     if coalesce(array_length(picked, 1), 0) + array_length(u.ids, 1) <= need then picked := picked || u.ids; end if;
@@ -192,13 +208,13 @@ begin
 
   if p_a > p_b then win := lg.seats[1:2]; lose := lg.seats[3:4]; else win := lg.seats[3:4]; lose := lg.seats[1:2]; end if;
   -- Losers: back of this court's line.
-  update dupr_sheet_players set status = 'here', streak = 0, line = lg.court, queued_at = now(), stack = 'L' where id = any(lose);
+  update dupr_sheet_players set status = 'here', streak = 0, line = _line_for(lg.session_id, lg.court), queued_at = now(), stack = 'L' where id = any(lose);
   -- Winners: stay for one more game (and split), unless they already stayed once.
   if (select bool_and(streak = 0) from dupr_sheet_players where id = any(win)) and win[2] is not null then
     stay := win;
-    update dupr_sheet_players set status = 'here', streak = 1, line = lg.court, stack = 'W' where id = any(win);
+    update dupr_sheet_players set status = 'here', streak = 1, line = _line_for(lg.session_id, lg.court), stack = 'W' where id = any(win);
   else
-    update dupr_sheet_players set status = 'here', streak = 0, line = lg.court, queued_at = now(), stack = 'W' where id = any(win);
+    update dupr_sheet_players set status = 'here', streak = 0, line = _line_for(lg.session_id, lg.court), queued_at = now(), stack = 'W' where id = any(win);
   end if;
   next_id := _groups_start(lg.session_id, lg.court, stay);
   if next_id is null and stay is not null then
@@ -250,13 +266,13 @@ language plpgsql stable security definer set search_path = public as $$
 declare sess record; today date := (now() at time zone 'Asia/Manila')::date; me uuid;
 begin
   if not _board_member(p_session) then raise exception 'Book this session to see its court board'; end if;
-  select id, label, venue, session_date, time_start, time_end, coalesce(courts, 3) courts, board_format into sess from sessions where id = p_session;
+  select id, label, venue, session_date, time_start, time_end, coalesce(courts, 3) courts, board_format, board_phase into sess from sessions where id = p_session;
   select id into me from dupr_sheet_players where session_id = p_session and profile_id = auth.uid();
   return jsonb_build_object(
     'session', jsonb_build_object('id', sess.id, 'label', sess.label, 'venue', sess.venue, 'session_date', sess.session_date,
       'time_start', sess.time_start, 'time_end', sess.time_end, 'courts', sess.courts, 'is_dupr', is_dupr_session(p_session),
       'board_open', sess.session_date between today - 1 and today, 'is_admin', is_club_admin(), 'server_now', now(), 'me', me,
-      'format', sess.board_format, 'groups', _groups_count(p_session), 'open_court', _open_court(p_session)),
+      'format', sess.board_format, 'phase', sess.board_phase, 'groups', _groups_count(p_session), 'open_court', _open_court(p_session)),
     'players', (select coalesce(jsonb_agg(jsonb_build_object(
         'id', sp.id, 'ref_no', sp.ref_no, 'name', coalesce(nullif(trim(p.full_name), ''), sp.name),
         'rating', p.dupr_doubles, 'linked', p.dupr_id is not null, 'level', sp.level, 'stack', sp.stack, 'status', sp.status,
@@ -278,9 +294,9 @@ begin
   );
 end $$;
 
-revoke all on function _groups_count(uuid), _open_court(uuid), _sheet_rating(uuid), _fit_group(uuid, uuid), _line_units(uuid, int),
+revoke all on function _line_for(uuid, int), _groups_count(uuid), _open_court(uuid), _sheet_rating(uuid), _fit_group(uuid, uuid), _line_units(uuid, int),
   _groups_start(uuid, int, uuid[]), _groups_finish(uuid, int, int, uuid, uuid) from public, anon, authenticated;
-revoke all on function board_make_groups(uuid), board_move_group(uuid, int), board_join_line(uuid, int), board_next_game(uuid, int),
+revoke all on function board_set_phase(uuid, text), board_make_groups(uuid), board_move_group(uuid, int), board_join_line(uuid, int), board_next_game(uuid, int),
   board_report(uuid, int, int), board_confirm(uuid) from public, anon;
-grant execute on function board_make_groups(uuid), board_move_group(uuid, int), board_join_line(uuid, int), board_next_game(uuid, int),
+grant execute on function board_set_phase(uuid, text), board_make_groups(uuid), board_move_group(uuid, int), board_join_line(uuid, int), board_next_game(uuid, int),
   board_report(uuid, int, int), board_confirm(uuid), board_view(uuid) to authenticated;

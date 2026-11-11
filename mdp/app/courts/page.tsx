@@ -96,7 +96,9 @@ export default function Courts() {
   // Chris's format: groups by DUPR, one court per group, the last court open to all.
   const groups = s?.format === 'groups';
   const openCourt = s?.open_court ?? null;
-  const courtLabel = (n: number) => (groups ? (n === openCourt ? 'Open' : groupName(n)) : '');
+  const free = groups && s?.phase === 'free';
+  const lineOf = (n: number) => (free ? 0 : n);
+  const courtLabel = (n: number) => (groups ? (free ? 'Free for all' : n === openCourt ? 'Open' : groupName(n)) : '');
   const needGroups = groups && !!b && b.players.some((p) => ['here', 'playing', 'resting'].includes(p.status)) && !b.players.some((p) => p.grp);
   const mySide = (lv: BLive) => (me ? (lv.seats.slice(0, 2).includes(me.id) ? 1 : lv.seats.slice(2).includes(me.id) ? 2 : 0) : 0);
   const repSide = (lv: BLive) => (lv.rep_by ? (lv.seats.slice(0, 2).includes(lv.rep_by) ? 1 : 2) : 0);
@@ -139,9 +141,12 @@ export default function Courts() {
 
         {run && groups && (
           <div className="status-card" style={{ marginTop: 14 }}>
-            <div className="h3" style={{ color: '#fff' }}>{needGroups ? 'Make tonight\'s groups' : 'Groups are set'}</div>
-            <p className="sub" style={{ margin: '4px 0 12px' }}>{needGroups ? 'Check everyone in, then split them by DUPR: top half on Court 1, bottom half on Court 2' + (openCourt ? `, Court ${openCourt} open to all.` : '.') : 'Late arrivals join the group their rating fits. Tap a name to move someone.'}</p>
-            <button className={'btn ' + (needGroups ? 'pink' : 'sm quiet')} style={needGroups ? undefined : { background: 'rgba(232,223,200,.12)', color: 'var(--cream)' }} disabled={busy} onClick={() => { if (needGroups || window.confirm('Split everyone who is off court into groups again?')) call('board_make_groups', { p_session: sid }, 'Groups made'); }}>{needGroups ? 'Make groups' : 'Re-split groups'}</button>
+            <div className="h3" style={{ color: '#fff' }}>{needGroups ? 'Make tonight\'s groups' : free ? 'Free for all' : 'Strict courts'}</div>
+            <p className="sub" style={{ margin: '4px 0 12px' }}>{needGroups ? `Check everyone in, then split them by DUPR into ${s?.groups ?? 3} groups, one per court.` : free ? 'Every court takes the next four from one line.' : 'Each group plays only on its own court. Late arrivals join the group their rating fits. Tap a name to move someone.'}</p>
+            <div className="btn-row" style={{ flexWrap: 'wrap' }}>
+              <button className={'btn ' + (needGroups ? 'pink' : 'sm quiet')} style={needGroups ? undefined : { background: 'rgba(232,223,200,.12)', color: 'var(--cream)' }} disabled={busy} onClick={() => { if (needGroups || window.confirm('Split everyone who is off court into groups again?')) call('board_make_groups', { p_session: sid }, 'Groups made'); }}>{needGroups ? 'Make groups' : 'Re-split groups'}</button>
+              {!needGroups && <button className="btn sm pink" disabled={busy} onClick={() => call('board_set_phase', { p_session: sid, p_phase: free ? 'strict' : 'free' }, free ? 'Back to strict courts' : 'Free for all: one line for every court')}>{free ? 'Back to strict courts' : 'Switch to free for all'}</button>}
+            </div>
           </div>
         )}
         {s && !run && (
@@ -178,12 +183,12 @@ export default function Courts() {
                 <button className="btn pink" disabled={busy} onClick={async () => { if (b?.session.is_dupr) await fn('dupr', 'entitlements', {}).catch(() => null); call('board_check_in', { p_session: sid, p_status: 'here' }, 'Welcome back'); }}>I&apos;m back</button>
               </>
             ) : groups && me.grp ? (() => {
-              const line = me.line ?? me.grp; const ups = lineUnits(b!.players, line);
+              const line = me.line ?? (free ? 0 : me.grp); const ups = lineUnits(b!.players, line);
               const pos = ups.findIndex((u) => u.includes(me.id)) + 1;
               return (
                 <>
-                  <div className="small">{groupName(me.grp)}, waiting for Court {line}{line === openCourt ? ' (open)' : ''}</div>
-                  <div className="big">{pos > 0 && pos <= 2 && !liveOn(line) ? 'Next up' : <>#{pos || '–'}<small> in line</small></>}</div>
+                  <div className="small">{free ? 'Free for all: next free court' : `${groupName(me.grp)}, your court is Court ${line}`}</div>
+                  <div className="big">#{pos || '–'}<small> in line</small></div>
                   <p className="sub" style={{ marginTop: 6 }}>{me.games} game{me.games === 1 ? '' : 's'} played tonight. Winners stay one more game, then split.</p>
                   <div className="btn-row" style={{ marginTop: 12, flexWrap: 'wrap' }}>
                     {openCourt && <button className="btn sm quiet" style={{ background: 'rgba(232,223,200,.12)', color: 'var(--cream)' }} disabled={busy} onClick={() => call('board_join_line', { p_session: sid, p_court: line === openCourt ? me.grp : openCourt }, line === openCourt ? `Back in line for Court ${me.grp}` : `In line for Court ${openCourt}`)}>{line === openCourt ? `Back to Court ${me.grp}` : `Play on Court ${openCourt} (open)`}</button>}
@@ -236,7 +241,7 @@ export default function Courts() {
                   <div key={n} className={'court free' + (run ? '' : ' quiet')}>
                     <div className="cn"><span>Court {n}{groups ? ` · ${courtLabel(n)}` : ''}</span><span>Free</span></div>
                     {groups ? (() => {
-                      const ups = lineUnits(b.players, n); const waiting = ups.flat().length;
+                      const ups = lineUnits(b.players, lineOf(n)); const waiting = ups.flat().length;
                       return run && waiting >= 4 ? (
                         <>
                           <div className="next-four"><b>Next:</b> {ups.flat().slice(0, 4).map((x) => firstName(nameOf(x))).join(', ')}</div>
@@ -265,18 +270,18 @@ export default function Courts() {
           <div className="section">
             <div className="section-head"><span className="h3">In line</span><span className="sub">{run ? (groups ? 'Tap a name: group, break, partner' : 'Tap a name: level, break, partner') : groups ? 'One line per court' : 'Grouped by level'}</span></div>
             <div className="stack">
-              {groups && courts.map((n) => {
+              {groups && (free ? [0] : courts).map((n) => {
                 const ups = lineUnits(b.players, n);
                 if (!ups.length) return null;
                 return (
                   <div key={'l' + n} className="queue">
-                    <div className="qh"><span>Court {n} · {courtLabel(n)}</span><span className="muted">{ups.flat().length} waiting</span></div>
+                    <div className="qh"><span>{n === 0 ? 'Free for all: every court' : `Court ${n} · ${courtLabel(n)}`}</span><span className="muted">{ups.flat().length} waiting</span></div>
                     {ups.map((u, i) => (
                       <div key={u[0]} className={'qp' + (me && u.includes(me.id) ? ' me' : '')}>
                         <span className="pos">{i + 1}</span>
                         <span className="nm">{u.map((x) => (run ? <button key={x} className="tapname" onClick={() => setSheet({ k: 'player', p: byId.get(x)! })}>{u.length === 2 ? firstName(byId.get(x)?.name ?? '') : byId.get(x)?.name}</button> : <span key={x}>{u.length === 2 ? firstName(byId.get(x)?.name ?? '') : byId.get(x)?.name}</span>)).reduce<React.ReactNode[]>((a, x, j) => (j ? [...a, ' & ', x] : [x]), [])}</span>
                         {u.length === 2 && <span className="pair">Partners</span>}
-                        {n === openCourt && <span className="tag off">{groupName(byId.get(u[0])?.grp)}</span>}
+                        {n === 0 && <span className="tag off">{groupName(byId.get(u[0])?.grp)}</span>}
                       </div>
                     ))}
                   </div>
