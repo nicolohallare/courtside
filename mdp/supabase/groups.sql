@@ -195,7 +195,7 @@ begin
   select * into lg from dupr_live_games where id = p_live for update;
   if lg.id is null then raise exception 'That game already ended. Refresh'; end if;
   if p_a is null or p_b is null or p_a = p_b or p_a < 0 or p_b < 0 or p_a > 30 or p_b > 30 then raise exception 'Enter both scores (no ties)'; end if;
-  for i in 1..4 loop select profile_id into profs[i] from dupr_sheet_players where id = lg.seats[i]; end loop;
+  for i in 1..4 loop profs[i] := (select profile_id from dupr_sheet_players where id = lg.seats[i]); end loop;
   if lg.seats[2] is null then fmt := 'singles'; end if;
   select string_agg(full_name, ' and ') into who from profiles where id in (p_by, p_confirmed_by);
   insert into match_records (session_id, recorded_by, team_a_p1, team_a_p2, team_b_p1, team_b_p2, sheet_seats, court, game_no,
