@@ -7,6 +7,7 @@ import { fn, mdpApi, sb, IS_DEMO } from '@/lib/supabase';
 import { nameProblem, normPhone } from '@/lib/me';
 import { Feedback } from '@/components/Feedback';
 import { RulesSheet } from '@/components/Rules';
+import { myOrgs } from '@/lib/host';
 import { useMe } from '@/lib/me';
 import { peso, rating } from '@/lib/format';
 import { Band, Empty, Loading, Sheet, useToast } from '@/components/Shell';
@@ -23,6 +24,8 @@ export default function Me() {
   const [edit, setEdit] = useState<{ name: string; phone: string } | null>(null);
   const [fb, setFb] = useState(false);
   const [rules, setRules] = useState(false);
+  const [orgs, setOrgs] = useState<{ id: string; name: string }[]>([]);
+  useEffect(() => { if (userId) myOrgs().then(setOrgs).catch(() => setOrgs([])); }, [userId]);
   useEffect(() => { if (location.hash === '#profile' && profile) setEdit({ name: profile.full_name ?? '', phone: profile.phone ?? '' }); }, [profile]);
   async function saveProfile() {
     if (!edit) return;
@@ -115,6 +118,7 @@ export default function Me() {
       <div className="section">
         <div className="list">
           <Link href="/bookings/#wallet"><Icon name="wallet" /><span className="grow">MDP wallet</span><b className="num">{wallet === null ? '—' : peso(wallet)}</b><Icon name="chev" className="chev" /></Link>
+          {orgs.length > 0 && <Link href="/host/"><Icon name="users" /><span className="grow">Host: {orgs.map((o) => o.name).join(', ')}<br /><span className="small muted">Your sessions, players and payouts</span></span><Icon name="chev" className="chev" /></Link>}
           {(profile?.is_admin || profile?.super_admin) && <Link href="/admin/"><Icon name="shield" /><span className="grow">Admin: payments and sessions</span><Icon name="chev" className="chev" /></Link>}
           {(profile?.is_admin || profile?.super_admin) && <Link href="/courts/results/"><Icon name="upload" /><span className="grow">Send results to DUPR</span><Icon name="chev" className="chev" /></Link>}
           <Link href="/bookings/"><Icon name="ticket" /><span className="grow">Bookings and payments</span><Icon name="chev" className="chev" /></Link>

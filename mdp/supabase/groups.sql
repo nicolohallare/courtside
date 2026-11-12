@@ -233,7 +233,7 @@ begin
   select * into lg from dupr_live_games where id = p_live for update;
   if lg.id is null then raise exception 'That game already ended. Refresh'; end if;
   if p_a is null or p_b is null or p_a = p_b or p_a < 0 or p_b < 0 or p_a > 30 or p_b > 30 then raise exception 'Enter both scores (no ties)'; end if;
-  if is_club_admin() then return _groups_finish(p_live, p_a, p_b, auth.uid(), auth.uid()); end if;
+  if _board_host(lg.session_id) then return _groups_finish(p_live, p_a, p_b, auth.uid(), auth.uid()); end if;
   select id into me from dupr_sheet_players where session_id = lg.session_id and profile_id = auth.uid();
   side := case when me = any(lg.seats[1:2]) then 1 when me = any(lg.seats[3:4]) then 2 end;
   if side is null then raise exception 'Only the players in this game can enter its score'; end if;
@@ -249,7 +249,7 @@ begin
   select * into lg from dupr_live_games where id = p_live for update;
   if lg.id is null then raise exception 'That game already ended. Refresh'; end if;
   if lg.rep_by is null then raise exception 'No score entered yet'; end if;
-  if not is_club_admin() then
+  if not _board_host(lg.session_id) then
     select id into me from dupr_sheet_players where session_id = lg.session_id and profile_id = auth.uid();
     select id into rep from dupr_sheet_players where session_id = lg.session_id and profile_id = lg.rep_by;
     mine := case when me = any(lg.seats[1:2]) then 1 when me = any(lg.seats[3:4]) then 2 end;
@@ -271,7 +271,7 @@ begin
   return jsonb_build_object(
     'session', jsonb_build_object('id', sess.id, 'label', sess.label, 'venue', sess.venue, 'session_date', sess.session_date,
       'time_start', sess.time_start, 'time_end', sess.time_end, 'courts', sess.courts, 'is_dupr', is_dupr_session(p_session),
-      'board_open', sess.session_date between today - 1 and today, 'is_admin', is_club_admin(), 'server_now', now(), 'me', me,
+      'board_open', sess.session_date between today - 1 and today, 'is_admin', _board_host(p_session), 'server_now', now(), 'me', me,
       'format', sess.board_format, 'phase', sess.board_phase, 'groups', _groups_count(p_session), 'open_court', _open_court(p_session)),
     'players', (select coalesce(jsonb_agg(jsonb_build_object(
         'id', sp.id, 'ref_no', sp.ref_no, 'name', coalesce(nullif(trim(p.full_name), ''), sp.name),

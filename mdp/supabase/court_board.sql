@@ -5,9 +5,27 @@
 
 alter table dupr_sheet_players add column if not exists partner_id uuid references dupr_sheet_players(id) on delete set null;
 
+-- Who runs a session's courts: club admins, and the host (organizer) of their own group's sessions.
+create or replace function _board_host(p_session uuid) returns boolean
+language sql stable security definer set search_path = public as $$
+  select is_club_admin() or exists (select 1 from sessions s where s.id = p_session and s.organizer_id is not null and _is_org_member(s.organizer_id));
+$$;
+revoke all on function _board_host(uuid) from public, anon, authenticated;
+
+create or replace function _dupr_board_guard(p_session uuid) returns void
+language plpgsql stable security definer set search_path = public as $$
+declare d date; today date := (now() at time zone 'Asia/Manila')::date;
+begin
+  if not _board_host(p_session) then raise exception 'Only the host can run the courts'; end if;
+  select session_date into d from sessions where id = p_session;
+  if d is null then raise exception 'Session not found'; end if;
+  if d > today then raise exception 'The court board opens on %', to_char(d, 'FMDy, FMMon FMDD'); end if;
+  if d < today - 1 then raise exception 'That session is over — use the scoresheet to fix games'; end if;
+end $$;
+
 create or replace function _board_member(p_session uuid) returns boolean
 language sql stable security definer set search_path = public as $$
-  select is_club_admin() or exists (select 1 from registrations r
+  select _board_host(p_session) or exists (select 1 from registrations r
     where r.session_uuid = p_session and r.user_id = auth.uid() and r.status in ('paid', 'pending'));
 $$;
 
@@ -28,7 +46,7 @@ language sql stable security definer set search_path = public as $$
   select coalesce(jsonb_agg(jsonb_build_object(
     'id', s.id, 'label', s.label, 'venue', s.venue, 'session_date', s.session_date,
     'time_start', s.time_start, 'time_end', s.time_end, 'courts', coalesce(s.courts, 3),
-    'is_dupr', is_dupr_session(s.id), 'is_admin', is_club_admin(),
+    'is_dupr', is_dupr_session(s.id), 'is_admin', _board_host(s.id),
     'booked', exists (select 1 from registrations r where r.session_uuid = s.id and r.user_id = auth.uid() and r.status in ('paid','pending')),
     'players', (select count(*) from dupr_sheet_players sp where sp.session_id = s.id and sp.status in ('here','playing','resting'))
   ) order by s.session_date desc, s.time_start), '[]'::jsonb)
@@ -101,7 +119,7 @@ language plpgsql security definer set search_path = public as $$
 declare a dupr_sheet_players; b dupr_sheet_players; mine uuid;
 begin
   perform _board_today(p_session);
-  if not is_club_admin() then
+  if not _board_host(p_session) then
     mine := _board_my_row(p_session);
     if p_a is distinct from mine then raise exception 'You can only change your own partner'; end if;
   end if;
@@ -152,7 +170,7 @@ begin
   return jsonb_build_object(
     'session', jsonb_build_object('id', sess.id, 'label', sess.label, 'venue', sess.venue, 'session_date', sess.session_date,
       'time_start', sess.time_start, 'time_end', sess.time_end, 'courts', sess.courts, 'is_dupr', is_dupr_session(p_session),
-      'board_open', sess.session_date between today - 1 and today, 'is_admin', is_club_admin(), 'server_now', now(), 'me', me),
+      'board_open', sess.session_date between today - 1 and today, 'is_admin', _board_host(p_session), 'server_now', now(), 'me', me),
     'players', (select coalesce(jsonb_agg(jsonb_build_object(
         'id', sp.id, 'ref_no', sp.ref_no, 'name', coalesce(nullif(trim(p.full_name), ''), sp.name),
         'rating', p.dupr_doubles, 'linked', p.dupr_id is not null, 'level', sp.level, 'stack', sp.stack, 'status', sp.status,

@@ -5,6 +5,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import { useMe } from '@/lib/me';
 import { IS_DEMO, sb } from '@/lib/supabase';
 import { CLASSIC_URL } from '@/lib/classic';
+import { myOrgs } from '@/lib/host';
 import { peso } from '@/lib/format';
 import { Icon } from './Icon';
 import { registerSw } from '@/lib/push';
@@ -12,7 +13,9 @@ import { registerSw } from '@/lib/push';
 export function Header() {
   const { profile, userId, ready, wallet } = useMe();
   const router = useRouter();
+  const [host, setHost] = useState(false);
   useEffect(() => { registerSw(); }, []);
+  useEffect(() => { if (userId) myOrgs().then((o) => setHost(o.length > 0)).catch(() => setHost(false)); else setHost(false); }, [userId]);
   // A password-reset link signs the member in; send them to set the new password.
   useEffect(() => {
     if (/type=recovery/.test(location.hash)) { try { sessionStorage.setItem('mdp-recovery', '1'); } catch { /* */ } }
@@ -49,7 +52,8 @@ export function Header() {
         <span className="grow" />
         {ready && (userId ? (
           <>
-            {(profile?.is_admin || profile?.super_admin) && <Link href="/admin/" className="admin-link" aria-label="Admin"><Icon name="shield" />Admin</Link>}
+            {(profile?.is_admin || profile?.super_admin) ? <Link href="/admin/" className="admin-link" aria-label="Admin"><Icon name="shield" />Admin</Link>
+              : host ? <Link href="/host/" className="admin-link" aria-label="Host"><Icon name="users" />Host</Link> : null}
             {wallet !== null && <Link href="/bookings/#wallet" className="wallet-pill" aria-label="Wallet balance"><i />{peso(wallet)}</Link>}
             <Link href="/me/" className="avatar" aria-label="Your profile">{initials || <Icon name="user" />}</Link>
           </>

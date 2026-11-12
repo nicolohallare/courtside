@@ -13,7 +13,7 @@ interface Tonight { id: string; label: string; venue: string; time_start: string
 
 export default function Courts() {
   const toast = useToast();
-  const { userId, ready } = useMe();
+  const { userId, ready, profile } = useMe();
   const [list, setList] = useState<Tonight[] | null>(null);
   const [sid, setSid] = useState<string | null>(null);
   const [b, setB] = useState<Board | null>(null);
@@ -337,7 +337,7 @@ export default function Courts() {
                 })}
               </div>
             )}
-            {s?.is_admin && s.is_dupr && <Link className="btn dupr" style={{ marginTop: 12 }} href={'/courts/results/?s=' + sid}>Review and send to <DuprLogo h={13} light /></Link>}
+            {s?.is_admin && s.is_dupr && (profile?.is_admin || profile?.super_admin) && <Link className="btn dupr" style={{ marginTop: 12 }} href={'/courts/results/?s=' + sid}>Review and send to <DuprLogo h={13} light /></Link>}
           </div>
         </>
       )}
