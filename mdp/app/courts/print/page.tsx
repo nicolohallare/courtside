@@ -1,17 +1,13 @@
 'use client';
-import '@fontsource/barlow-condensed/600.css';
-import '@fontsource/barlow-condensed/700.css';
-import '@fontsource/barlow-condensed/800.css';
 import { useEffect, useState } from 'react';
 import { rpc } from '@/lib/supabase';
 import { groupName, type Board, type BPlayer } from '@/lib/board';
 import { Loading } from '@/components/Shell';
 
-// The groupings sheet posted at the venue, in MDP's own sheet design (Chris, Pickle Drop, Nov 12),
-// filled from tonight's check-ins and the host's format (groups, late courts, free-for-all time).
+// The groupings sheet posted at the venue (content from Chris's Pickle Drop sheet, Nov 12), in the new
+// app's look, filled from tonight's check-ins and the host's format (groups, late courts, free-for-all time).
 const LEFT = ['Games to 11, no deuce. First to 11 wins.', 'Winners stay one more game and split partners.', 'Write your name as it appears in your DUPR account.'];
 const RIGHT = ['Choose your partners and stack within your group.', 'Losing pair rotates out.', 'Winners enter the score in the app; one opponent confirms it.'];
-const ord = (n: number) => n + (['th', 'st', 'nd', 'rd'][(n % 100 > 10 && n % 100 < 14) ? 0 : n % 10] ?? 'th');
 const hm = (t: string) => { const [h, m] = t.split(':').map(Number); return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')}`; };
 const ap = (t: string) => (Number(t.split(':')[0]) < 12 ? 'AM' : 'PM');
 const span = (a: string, b: string) => `${hm(a)}–${hm(b)} ${ap(b)}`;
@@ -34,24 +30,26 @@ export default function PrintGroups() {
   const range = (ps: BPlayer[]) => { const r = rated(ps); return r.length ? ` · ${Math.min(...r).toFixed(2)}–${Math.max(...r).toFixed(2)}` : ''; };
   const day = new Date(s.session_date + 'T12:00:00+08:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
   const start = s.time_start.slice(0, 5), end = s.time_end.slice(0, 5), free = s.free_at ?? null;
-  const opens = Object.entries(s.court_opens ?? {}).map(([c, t]) => [Number(c), t] as const).sort((x, y) => x[1].localeCompare(y[1]) || x[0] - y[0]);
-  const fromStart = s.courts - opens.length;
-  const tallest = Math.max(...groups.map((g) => g.length));
   const names = groups.map((_, i) => groupName(i + 1));
 
+  const courtList = Array.from({ length: s.courts }, (_, i) => i + 1);
   return (
     <div className="gs">
       <div className="no-print" style={{ marginBottom: 16 }}><button className="btn pink" onClick={() => window.print()}>Print or save as PDF</button></div>
-      <div className="gs-kicker">Match Day Pickle!</div>
-      <h1 className="gs-title">Open play groupings</h1>
-      <div className="gs-meta">{day} · {span(start, end)} · {s.venue} · {inn.length} players · {s.courts} courts</div>
+      <div className="gs-band">
+        <img src="/mdp-logo.webp" alt="Match Day Pickle" className="gs-logo" />
+        <div>
+          <div className="gs-kicker">Open play groupings</div>
+          <h1 className="gs-title">{s.label}</h1>
+          <div className="gs-meta">{day} · {span(start, end)} · {s.venue} · {inn.length} players</div>
+        </div>
+      </div>
 
       <div className="gs-groups" style={{ gridTemplateColumns: `repeat(${Math.min(n, 3)}, 1fr)` }}>
         {groups.map((ps, i) => (
           <div key={i} className="gs-group">
             <div className="gs-gh"><span>{names[i]}</span><small>{ps.length} players{range(ps)}</small></div>
-            {ps.map((p) => <div key={p.id} className="gs-row"><span>{p.name}</span><b>{p.rating != null ? p.rating.toFixed(3) : 'NR'}</b></div>)}
-            {Array.from({ length: tallest - ps.length }, (_, k) => <div key={'e' + k} className="gs-row empty" />)}
+            {ps.map((p) => <div key={p.id} className="gs-row"><span>{p.name}</span>{p.rating != null ? <b>{p.rating.toFixed(3)}</b> : <i>Not rated</i>}</div>)}
           </div>
         ))}
       </div>
@@ -71,18 +69,21 @@ export default function PrintGroups() {
         )}
       </div>
 
-      <div className="gs-box gs-courts">
-        <span className="gs-label">Courts</span>
-        <span><b>{fromStart} court{fromStart === 1 ? '' : 's'}</b> from {hm(start)} {ap(start)}</span>
-        {opens.map(([c, t]) => <span key={c}><b>{ord(c)} court</b> opens at {hm(t)} {ap(t)}</span>)}
+      <div className="gs-courts">
+        {courtList.map((c) => { const t = s.court_opens?.[String(c)]; return (
+          <div key={c} className={'gs-court' + (t ? ' later' : '')}><b>Court {c}</b><span>{t ? `Opens ${hm(t)} ${ap(t)}` : `From ${hm(start)} ${ap(start)}`}</span></div>
+        ); })}
       </div>
 
-      <div className="gs-box">
+      <div className="gs-card">
         <div className="gs-label">House rules</div>
         <div className="gs-rules"><ul>{LEFT.map((r) => <li key={r}>{r}</li>)}</ul><ul>{RIGHT.map((r) => <li key={r}>{r}</li>)}</ul></div>
       </div>
 
-      <div className="gs-foot">{free ? `Respect the groupings until ${hm(free)}. ` : ''}Share court time. Have fun!</div>
+      <div className="gs-foot">
+        <span>{free ? `Respect the groupings until ${hm(free)}. ` : ''}Share court time. Have fun!</span>
+        <span className="gs-dupr">Ratings Powered by <img src="/dupr-logo.png" alt="DUPR" /></span>
+      </div>
     </div>
   );
 }
