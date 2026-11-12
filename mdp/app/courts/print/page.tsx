@@ -6,7 +6,8 @@ import { Loading } from '@/components/Shell';
 
 // The groupings sheet posted at the venue (content from Chris's Pickle Drop sheet, Nov 12), in the new
 // app's look, filled from tonight's check-ins and the host's format (groups, late courts, free-for-all time).
-const LEFT = ['Games to 11, no deuce. First to 11 wins.', 'Winners stay one more game and split partners.', 'Write your name as it appears in your DUPR account.'];
+const LEFT = ['Games to 11, no deuce. First to 11 wins.', 'Winners stay one more game and split partners.'];
+const DUPR_RULE = 'Write your name as it appears in your DUPR account.';
 const RIGHT = ['Choose your partners and stack within your group.', 'Losing pair rotates out.', 'Winners enter the score in the app; one opponent confirms it.'];
 const hm = (t: string) => { const [h, m] = t.split(':').map(Number); return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')}`; };
 const ap = (t: string) => (Number(t.split(':')[0]) < 12 ? 'AM' : 'PM');
@@ -39,7 +40,7 @@ export default function PrintGroups() {
       <div className="gs-band">
         <img src="/mdp-logo.webp" alt="Match Day Pickle" className="gs-logo" />
         <div>
-          <div className="gs-kicker">Open play groupings</div>
+          <div className="gs-kicker">{s.is_dupr ? 'DUPR night groupings' : 'Open play groupings'}</div>
           <h1 className="gs-title">{s.label}</h1>
           <div className="gs-meta">{day} · {span(start, end)} · {s.venue} · {inn.length} players</div>
         </div>
@@ -58,7 +59,7 @@ export default function PrintGroups() {
         <div className="gs-phase one">
           <div className="gs-pt">{span(start, free ?? end)}</div>
           <b>Stack within your group</b>
-          <p>{names.map((g) => `${g} plays ${g}`).join(', ')}. Closer ratings mean your games actually move your DUPR.</p>
+          <p>{names.map((g) => `${g} plays ${g}`).join(', ')}. {s.is_dupr ? 'Closer ratings mean your games actually move your DUPR.' : 'Grouped by DUPR rating, so every game is close.'}</p>
         </div>
         {free && (
           <div className="gs-phase">
@@ -77,7 +78,7 @@ export default function PrintGroups() {
 
       <div className="gs-card">
         <div className="gs-label">House rules</div>
-        <div className="gs-rules"><ul>{LEFT.map((r) => <li key={r}>{r}</li>)}</ul><ul>{RIGHT.map((r) => <li key={r}>{r}</li>)}</ul></div>
+        <div className="gs-rules"><ul>{[...LEFT, ...(s.is_dupr ? [DUPR_RULE] : [])].map((r) => <li key={r}>{r}</li>)}</ul><ul>{RIGHT.map((r) => <li key={r}>{r}</li>)}</ul></div>
       </div>
 
       <div className="gs-foot">
