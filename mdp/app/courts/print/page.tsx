@@ -1,19 +1,20 @@
 'use client';
+import '@fontsource/barlow-condensed/600.css';
+import '@fontsource/barlow-condensed/700.css';
+import '@fontsource/barlow-condensed/800.css';
 import { useEffect, useState } from 'react';
 import { rpc } from '@/lib/supabase';
-import { fmtClock } from '@/lib/format';
-import { clock, groupName, type Board, type BPlayer } from '@/lib/board';
+import { groupName, type Board, type BPlayer } from '@/lib/board';
 import { Loading } from '@/components/Shell';
 
-// The groupings sheet to post at the venue, made from tonight's groups (Chris's Pickle Drop sheet).
-const RULES = [
-  'Games to 11, no deuce. First to 11 wins.',
-  'Winners stay one more game and split partners.',
-  'Losing pair rotates out.',
-  'Choose your partners and stack within your group.',
-  'One player enters the score in the app; someone from the other team confirms it.',
-  'Write your name as it appears in your DUPR account.',
-];
+// The groupings sheet posted at the venue, in MDP's own sheet design (Chris, Pickle Drop, Nov 12),
+// filled from tonight's check-ins and the host's format (groups, late courts, free-for-all time).
+const LEFT = ['Games to 11, no deuce. First to 11 wins.', 'Winners stay one more game and split partners.', 'Write your name as it appears in your DUPR account.'];
+const RIGHT = ['Choose your partners and stack within your group.', 'Losing pair rotates out.', 'Winners enter the score in the app; one opponent confirms it.'];
+const ord = (n: number) => n + (['th', 'st', 'nd', 'rd'][(n % 100 > 10 && n % 100 < 14) ? 0 : n % 10] ?? 'th');
+const hm = (t: string) => { const [h, m] = t.split(':').map(Number); return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')}`; };
+const ap = (t: string) => (Number(t.split(':')[0]) < 12 ? 'AM' : 'PM');
+const span = (a: string, b: string) => `${hm(a)}–${hm(b)} ${ap(b)}`;
 
 export default function PrintGroups() {
   const [b, setB] = useState<Board | null>(null);
@@ -29,32 +30,59 @@ export default function PrintGroups() {
   const inn = b.players.filter((p) => ['here', 'playing', 'resting'].includes(p.status) && p.grp);
   const n = s.groups ?? 2;
   const groups = Array.from({ length: n }, (_, i) => i + 1).map((g) => inn.filter((p) => p.grp === g).sort((x, y) => (y.rating ?? -1) - (x.rating ?? -1)));
-  const range = (ps: BPlayer[]) => { const r = ps.map((p) => p.rating).filter((x): x is number => x != null); return r.length ? `${Math.min(...r).toFixed(2)}–${Math.max(...r).toFixed(2)}` : 'Not rated'; };
-  const day = new Date(s.session_date + 'T12:00:00+08:00').toLocaleDateString('en-PH', { weekday: 'short', month: 'short', day: 'numeric' });
-  const start = s.time_start.slice(0, 5), end = s.time_end.slice(0, 5);
-  const opens = Object.entries(s.court_opens ?? {}).sort();
+  const rated = (ps: BPlayer[]) => ps.map((p) => p.rating).filter((x): x is number => x != null);
+  const range = (ps: BPlayer[]) => { const r = rated(ps); return r.length ? ` · ${Math.min(...r).toFixed(2)}–${Math.max(...r).toFixed(2)}` : ''; };
+  const day = new Date(s.session_date + 'T12:00:00+08:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const start = s.time_start.slice(0, 5), end = s.time_end.slice(0, 5), free = s.free_at ?? null;
+  const opens = Object.entries(s.court_opens ?? {}).map(([c, t]) => [Number(c), t] as const).sort((x, y) => x[1].localeCompare(y[1]) || x[0] - y[0]);
   const fromStart = s.courts - opens.length;
+  const tallest = Math.max(...groups.map((g) => g.length));
+  const names = groups.map((_, i) => groupName(i + 1));
+
   return (
-    <div className="print-sheet">
-      <div className="no-print btn-row" style={{ marginBottom: 16 }}><button className="btn pink" onClick={() => window.print()}>Print or save as PDF</button></div>
-      <div className="ps-kicker">Match Day Pickle</div>
-      <h1 className="ps-title">Open play groupings</h1>
-      <div className="ps-meta">{day} · {fmtClock(s.time_start)} to {fmtClock(s.time_end)} · {s.venue} · {inn.length} players · {s.courts} courts</div>
-      <div className="ps-groups" style={{ gridTemplateColumns: `repeat(${Math.min(n, 3)}, 1fr)` }}>
+    <div className="gs">
+      <div className="no-print" style={{ marginBottom: 16 }}><button className="btn pink" onClick={() => window.print()}>Print or save as PDF</button></div>
+      <div className="gs-kicker">Match Day Pickle!</div>
+      <h1 className="gs-title">Open play groupings</h1>
+      <div className="gs-meta">{day} · {span(start, end)} · {s.venue} · {inn.length} players · {s.courts} courts</div>
+
+      <div className="gs-groups" style={{ gridTemplateColumns: `repeat(${Math.min(n, 3)}, 1fr)` }}>
         {groups.map((ps, i) => (
-          <div key={i} className="ps-group">
-            <div className="ps-gh"><span>{groupName(i + 1)}</span><span>{ps.length} players · {range(ps)}</span></div>
-            {ps.map((p) => <div key={p.id} className="ps-row"><span>{p.name}</span><b>{p.rating != null ? p.rating.toFixed(3) : 'NR'}</b></div>)}
+          <div key={i} className="gs-group">
+            <div className="gs-gh"><span>{names[i]}</span><small>{ps.length} players{range(ps)}</small></div>
+            {ps.map((p) => <div key={p.id} className="gs-row"><span>{p.name}</span><b>{p.rating != null ? p.rating.toFixed(3) : 'NR'}</b></div>)}
+            {Array.from({ length: tallest - ps.length }, (_, k) => <div key={'e' + k} className="gs-row empty" />)}
           </div>
         ))}
       </div>
-      <div className="ps-phases">
-        <div className="ps-phase on"><div className="ps-pt">{clock(start)}{s.free_at ? `–${clock(s.free_at)}` : `–${clock(end)}`}</div><b>Play within your group</b><p>{groups.map((_, i) => `${groupName(i + 1)} plays ${groupName(i + 1)}`).join(', ')}. Closer ratings mean your games actually move your DUPR.</p></div>
-        {s.free_at && <div className="ps-phase"><div className="ps-pt">{clock(s.free_at)}–{clock(end)}</div><b>Free for all</b><p>Groups open up. Play anyone, mix partners, one line for every court.</p></div>}
+
+      <div className="gs-phases">
+        <div className="gs-phase one">
+          <div className="gs-pt">{span(start, free ?? end)}</div>
+          <b>Stack within your group</b>
+          <p>{names.map((g) => `${g} plays ${g}`).join(', ')}. Closer ratings mean your games actually move your DUPR.</p>
+        </div>
+        {free && (
+          <div className="gs-phase">
+            <div className="gs-pt">{span(free, end)}</div>
+            <b>Free for all</b>
+            <p>Groups open up. Play anyone, mix partners, stack as one pool.</p>
+          </div>
+        )}
       </div>
-      <div className="ps-box"><b>Courts</b> {opens.length ? <>{fromStart} court{fromStart === 1 ? '' : 's'} from {clock(start)}{opens.map(([c, t]) => <span key={c}> · Court {c} opens at {clock(t)}</span>)}</> : <>All {s.courts} courts from {clock(start)}</>}</div>
-      <div className="ps-box"><b>House rules</b><ul>{RULES.map((r) => <li key={r}>{r}</li>)}</ul></div>
-      <div className="ps-foot">{s.free_at ? `Respect the groupings until ${clock(s.free_at)}. ` : ''}Share court time. Have fun.</div>
+
+      <div className="gs-box gs-courts">
+        <span className="gs-label">Courts</span>
+        <span><b>{fromStart} court{fromStart === 1 ? '' : 's'}</b> from {hm(start)} {ap(start)}</span>
+        {opens.map(([c, t]) => <span key={c}><b>{ord(c)} court</b> opens at {hm(t)} {ap(t)}</span>)}
+      </div>
+
+      <div className="gs-box">
+        <div className="gs-label">House rules</div>
+        <div className="gs-rules"><ul>{LEFT.map((r) => <li key={r}>{r}</li>)}</ul><ul>{RIGHT.map((r) => <li key={r}>{r}</li>)}</ul></div>
+      </div>
+
+      <div className="gs-foot">{free ? `Respect the groupings until ${hm(free)}. ` : ''}Share court time. Have fun!</div>
     </div>
   );
 }
