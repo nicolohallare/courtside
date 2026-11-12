@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import { mdpApi, rpc } from '@/lib/supabase';
 import { useMe } from '@/lib/me';
-import { manilaToday, peso } from '@/lib/format';
+import { fmtClock, fmtDate, manilaToday, peso } from '@/lib/format';
 import { loadMyRegs, type Reg } from '@/lib/sessions';
 import { GcashPay } from '@/components/GcashPay';
 import { Band, Empty, Loading, Sheet, useToast } from '@/components/Shell';
@@ -20,10 +20,12 @@ export default function Bookings() {
   const [paying, setPaying] = useState<Reg | null>(null);
   const [busy, setBusy] = useState(false);
   const [cancelling, setCancelling] = useState<Reg | null>(null);
+  const [training, setTraining] = useState<{ booking_id: string; session_date: string; time_start: string; venue: string; partners: string; amount_due: number; all_settled: boolean }[] | null>(null);
   const [tab, setTab] = useState<'next' | 'past'>('next');
   const load = useCallback(() => {
     loadMyRegs().then(setRegs).catch(() => setRegs([]));
     rpc<Move[]>('my_wallet_history').then(setMoves).catch(() => setMoves([]));
+    rpc<NonNullable<typeof training>>('my_training_bookings').then(setTraining).catch(() => setTraining([]));
   }, []);
   useEffect(() => { if (userId) load(); }, [userId, load]);
 
@@ -94,6 +96,18 @@ export default function Bookings() {
             ? (upcoming.length ? upcoming.map(ticket) : <Empty title="No upcoming games"><Link className="link" href="/">Find a session</Link></Empty>)
             : (past.length ? past.slice(0, 20).map(ticket) : <Empty title="Nothing here yet" />)}
       </div>
+
+      {training && training.length > 0 && tab === 'next' && (
+        <div className="section">
+          <div className="section-head"><span className="h3">Coaching</span><Link className="link" href="/training/">Open</Link></div>
+          <div className="list">
+            {training.map((t) => (
+              <Link key={t.booking_id} href="/training/"><span className="grow"><b>{fmtDate(t.session_date)}, {fmtClock(t.time_start)}</b><br /><span className="small muted">{t.venue}{t.partners ? `, with ${t.partners}` : ''}</span></span>
+                {Number(t.amount_due) > 0 ? <span className="tag off">{peso(t.amount_due)} to pay</span> : <span className={'tag ' + (t.all_settled ? 'ok' : 'wait')}>{t.all_settled ? 'Paid' : 'Checking'}</span>}</Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="section" id="wallet">
         <div className="section-head"><span className="h3">MDP wallet</span><span className="num" style={{ fontWeight: 800, fontSize: 22, color: 'var(--court)' }}>{wallet === null ? '—' : peso(wallet)}</span></div>

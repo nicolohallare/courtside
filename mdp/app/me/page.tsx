@@ -5,7 +5,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { fn, mdpApi, sb, IS_DEMO } from '@/lib/supabase';
 import { nameProblem, normPhone } from '@/lib/me';
-import { CLASSIC_URL } from '@/lib/classic';
 import { Feedback } from '@/components/Feedback';
 import { RulesSheet } from '@/components/Rules';
 import { useMe } from '@/lib/me';
@@ -123,7 +122,7 @@ export default function Me() {
             {push === 'off' && <button className="btn sm pink inline" onClick={enablePush}>Turn on</button>}</div>
           <button onClick={() => setEdit({ name: profile?.full_name ?? '', phone: profile?.phone ?? '' })} style={{ width: '100%', textAlign: 'left' }}><Icon name="user" /><span className="grow">Name and mobile<br /><span className="small muted">{profile?.phone || 'Mobile not set yet'}</span></span><Icon name="chev" className="chev" /></button>
           <Link href="/topup/"><Icon name="wallet" /><span className="grow">Top up my wallet</span><Icon name="chev" className="chev" /></Link>
-          <a href={CLASSIC_URL + '/?tab=training'}><Icon name="trophy" /><span className="grow">Coaching<br /><span className="small muted">Book and pay for coaching (opens the classic app)</span></span><Icon name="chev" className="chev" /></a>
+          <Link href="/training/"><Icon name="trophy" /><span className="grow">Coaching<br /><span className="small muted">Book an hour with the coach</span></span><Icon name="chev" className="chev" /></Link>
           <button onClick={() => setRules(true)} style={{ width: '100%', textAlign: 'left' }}><Icon name="info" /><span className="grow">House rules</span><Icon name="chev" className="chev" /></button>
           <button onClick={() => setFb(true)} style={{ width: '100%', textAlign: 'left' }}><Icon name="bell" /><span className="grow">Report a problem or send feedback</span><Icon name="chev" className="chev" /></button>
           <button onClick={async () => { await sb().auth.signOut(); router.push('/'); }} style={{ width: '100%', textAlign: 'left' }}><Icon name="out" /><span className="grow">Sign out</span></button>
