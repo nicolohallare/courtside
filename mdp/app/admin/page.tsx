@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import { rpc } from '@/lib/supabase';
 import { CLASSIC_URL } from '@/lib/classic';
 import { useEffect, useState } from 'react';
 import { AdminBand, AdminOnly } from '@/components/AdminBits';
@@ -8,7 +9,7 @@ import { Icon } from '@/components/Icon';
 import { dayHeading, fmtClock, manilaToday, peso } from '@/lib/format';
 import { isDraft, loadAdminSessions, loadCounts, loadOverpaid, loadTickets, loadTopups, type AdminSess, type Counts, type Overpay, type Ticket, type Topup } from '@/lib/admin';
 
-interface Data { sessions: AdminSess[]; counts: Record<string, Counts>; topups: Topup[]; over: Overpay[]; tickets: Ticket[] }
+interface Data { sessions: AdminSess[]; counts: Record<string, Counts>; topups: Topup[]; over: Overpay[]; tickets: Ticket[]; hosts: { name: string; due: number }[] }
 
 export default function AdminToday() {
   return <AdminOnly><Today /></AdminOnly>;
@@ -21,7 +22,8 @@ function Today() {
     Promise.all([
       loadAdminSessions(), loadCounts(),
       loadTopups().catch(() => [] as Topup[]), loadOverpaid().catch(() => [] as Overpay[]), loadTickets().catch(() => [] as Ticket[]),
-    ]).then(([sessions, counts, topups, over, tickets]) => setD({ sessions, counts, topups, over, tickets })).catch((e) => setErr((e as Error).message));
+      rpc<{ name: string; summary: { due_net: number } | null }[]>('payout_report').then((r) => r.map((o) => ({ name: o.name, due: Number(o.summary?.due_net ?? 0) })).filter((o) => o.due > 0)).catch(() => [] as { name: string; due: number }[]),
+    ]).then(([sessions, counts, topups, over, tickets, hosts]) => setD({ sessions, counts, topups, over, tickets, hosts })).catch((e) => setErr((e as Error).message));
   }, []);
 
   if (err) return <><AdminBand title="Today" /><div className="section"><div className="err">{err}</div></div></>;
@@ -37,7 +39,7 @@ function Today() {
   const drafts = live.filter(isDraft);
   const soon = live.filter((s) => s.published_at && s.session_date >= today).sort((a, b) => (a.session_date + a.time_start).localeCompare(b.session_date + b.time_start)).slice(0, 6);
   const owed = d.over.reduce((n, o) => n + Number(o.excess), 0);
-  const all = checks + d.over.length + open + drafts.length;
+  const all = checks + d.over.length + open + drafts.length + d.hosts.length;
 
   return (
     <>
@@ -60,6 +62,13 @@ function Today() {
           <Link href="/admin/sessions/#drafts" className="todo">
             <span className="n">{drafts.length}</span>
             <span><div className="t">{drafts.length === 1 ? 'Draft not published' : 'Drafts not published'}</div><div className="d">{drafts.map((s) => s.label).slice(0, 2).join(', ')}{drafts.length > 2 ? '…' : ''}</div></span>
+            <Icon name="chev" className="chev" />
+          </Link>
+        )}
+        {d.hosts.length > 0 && (
+          <Link href="/admin/payouts/" className="todo">
+            <span className="n">{d.hosts.length}</span>
+            <span><div className="t">Pay {d.hosts.length === 1 ? 'a host' : 'hosts'}</div><div className="d">{d.hosts.map((h) => `${h.name} ${peso(h.due)}`).join(', ')}</div></span>
             <Icon name="chev" className="chev" />
           </Link>
         )}
@@ -103,6 +112,7 @@ function Today() {
         <div className="section-head"><span className="h3">More tools</span></div>
         <div className="list">
           <Link href="/admin/members/"><Icon name="users" /><span className="grow">Members and tiers</span><Icon name="chev" className="chev" /></Link>
+          <Link href="/admin/payouts/"><Icon name="wallet" /><span className="grow">Host payouts</span><Icon name="chev" className="chev" /></Link>
           <Link href="/admin/training/"><Icon name="trophy" /><span className="grow">Coaching days</span><Icon name="chev" className="chev" /></Link>
           <Link href="/admin/feedback/"><Icon name="bell" /><span className="grow">Feedback</span><Icon name="chev" className="chev" /></Link>
           <a href={CLASSIC_URL + '/#admin'} target="_blank" rel="noopener"><Icon name="link" /><span className="grow">Financials and venues<br /><span className="small muted">In the classic app for now. Same login.</span></span><Icon name="chev" className="chev" /></a>
