@@ -397,3 +397,31 @@ textarea.input { min-height: 90px; resize: vertical; }
 .past-event .pic { aspect-ratio: 1200 / 630; background: center / cover no-repeat; }
 .past-event .body { padding: 14px 16px 16px; }
 .past-event .row2 { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+/* Printable groupings sheet */
+.print-sheet { max-width: 780px; margin: 0 auto; padding: 20px 16px 40px; background: #fff; color: #1b2440; }
+.ps-kicker { color: var(--pink); font-weight: 800; letter-spacing: .14em; text-transform: uppercase; font-size: 12px; }
+.ps-title { font-family: var(--display, inherit); font-size: 34px; font-weight: 900; text-transform: uppercase; line-height: 1; margin: 4px 0 6px; }
+.ps-meta { font-size: 13px; font-weight: 600; padding-bottom: 10px; border-bottom: 2px solid var(--pink); margin-bottom: 14px; }
+.ps-groups { display: grid; gap: 12px; }
+.ps-group { border: 1px solid #1b2440; border-radius: 8px; overflow: hidden; }
+.ps-gh { background: #1b2440; color: #fff; display: flex; justify-content: space-between; align-items: baseline; padding: 8px 12px; font-weight: 900; text-transform: uppercase; }
+.ps-gh span:last-child { font-size: 10px; letter-spacing: .06em; }
+.ps-row { display: flex; justify-content: space-between; padding: 6px 12px; font-size: 13px; border-top: 1px solid #e5e1d8; }
+.ps-row:nth-child(odd) { background: #f8f4ec; }
+.ps-row b { color: var(--pink); }
+.ps-phases { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+.ps-phase { border: 1px solid #1b2440; border-radius: 8px; padding: 10px 12px; background: #f3ede2; font-size: 12px; }
+.ps-phase.on { border-color: var(--pink); }
+.ps-phase p { margin-top: 4px; }
+.ps-pt { font-weight: 900; font-size: 20px; color: var(--pink); }
+.ps-phase:not(.on) .ps-pt { color: #1b2440; }
+.ps-box { border: 1px solid #1b2440; border-radius: 8px; padding: 10px 12px; margin-top: 12px; font-size: 13px; }
+.ps-box ul { margin: 6px 0 0 18px; columns: 2; font-size: 12px; }
+.ps-foot { background: #1b2440; color: #fff; text-align: center; font-weight: 900; text-transform: uppercase; padding: 10px; border-radius: 8px; margin-top: 12px; font-size: 13px; letter-spacing: .04em; }
+@media print {
+  .top, .nav, .demo-strip, .no-print { display: none !important; }
+  body { background: #fff !important; }
+  .print-sheet { padding: 0; }
+  @page { margin: 12mm; }
+}
+@media (max-width: 520px) { .ps-groups { grid-template-columns: 1fr !important; } .ps-phases { grid-template-columns: 1fr; } .ps-box ul { columns: 1; } }

@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fn, rpc } from '@/lib/supabase';
 import { useMe } from '@/lib/me';
 import { fmtClock, initials } from '@/lib/format';
-import { LEVELS, firstName, groupName, levelName, lineUnits, minutesSince, myPlace, stackName, suggest, units, type Board, type BLive, type BPlayer, type Suggestion } from '@/lib/board';
+import { LEVELS, clock, firstName, groupName, levelName, lineUnits, minutesSince, myPlace, nextGroup, stackName, suggest, units, type Board, type BLive, type BPlayer, type Suggestion } from '@/lib/board';
 import { Band, Empty, Loading, Sheet, useToast } from '@/components/Shell';
 import { Icon } from '@/components/Icon';
 
@@ -20,7 +20,8 @@ export default function Courts() {
   const [err, setErr] = useState('');
   const [mode, setMode] = useState<'me' | 'run'>('me');
   const [busy, setBusy] = useState(false);
-  const [sheet, setSheet] = useState<null | { k: 'finish'; live: BLive } | { k: 'player'; p: BPlayer } | { k: 'pick'; court: number; seats: string[] } | { k: 'partner' }>(null);
+  const [sheet, setSheet] = useState<null | { k: 'finish'; live: BLive } | { k: 'player'; p: BPlayer } | { k: 'pick'; court: number; seats: string[] } | { k: 'partner' } | { k: 'setup' }>(null);
+  const [setup, setSetup] = useState<{ groups: number; free: string; opens: Record<string, string> }>({ groups: 2, free: '', opens: {} });
   const [, tick] = useState(0);
 
   useEffect(() => {
@@ -93,12 +94,16 @@ export default function Courts() {
   const courts = Array.from({ length: s?.courts ?? 0 }, (_, i) => i + 1);
   const liveOn = (n: number) => b?.live.find((l) => l.court === n);
   const run = mode === 'run' && !!s?.is_admin;
-  // Chris's format: groups by DUPR, one court per group, the last court open to all.
+  // Chris's format: groups by DUPR sharing the courts; a free court goes to the group with the fewest
+  // games on court, then the one that has waited longest. Late courts and a free-for-all time are set by the host.
   const groups = s?.format === 'groups';
-  const openCourt = s?.open_court ?? null;
   const free = groups && s?.phase === 'free';
-  const lineOf = (n: number) => (free ? 0 : n);
-  const courtLabel = (n: number) => (groups ? (free ? 'Free for all' : n === openCourt ? 'Open' : groupName(n)) : '');
+  const nGroups = s?.groups ?? 2;
+  const lines = free ? [0] : Array.from({ length: nGroups }, (_, i) => i + 1);
+  const opensAt = (n: number) => s?.court_opens?.[String(n)] ?? null;
+  const closed = (n: number) => { const t = opensAt(n); if (!t || !s) return false; return Date.now() - offset < Date.parse(`${s.session_date}T${t}:00+08:00`); };
+  const courtLabel = (n: number) => { if (!groups) return ''; const lv = liveOn(n); if (free) return 'Free for all'; const g = lv ? byId.get(lv.seats[0] ?? '')?.grp : null; return g ? groupName(g) : ''; };
+  const upNext = groups && b ? nextGroup(b.players, b.live, lines) : null;
   const needGroups = groups && !!b && b.players.some((p) => ['here', 'playing', 'resting'].includes(p.status)) && !b.players.some((p) => p.grp);
   const mySide = (lv: BLive) => (me ? (lv.seats.slice(0, 2).includes(me.id) ? 1 : lv.seats.slice(2).includes(me.id) ? 2 : 0) : 0);
   const repSide = (lv: BLive) => (lv.rep_by ? (lv.seats.slice(0, 2).includes(lv.rep_by) ? 1 : 2) : 0);
@@ -141,11 +146,14 @@ export default function Courts() {
 
         {run && groups && (
           <div className="status-card" style={{ marginTop: 14 }}>
-            <div className="h3" style={{ color: '#fff' }}>{needGroups ? 'Make tonight\'s groups' : free ? 'Free for all' : 'Strict courts'}</div>
-            <p className="sub" style={{ margin: '4px 0 12px' }}>{needGroups ? `Check everyone in, then split them by DUPR into ${s?.groups ?? 3} groups, one per court.` : free ? 'Every court takes the next four from one line.' : 'Each group plays only on its own court. Late arrivals join the group their rating fits. Tap a name to move someone.'}</p>
+            <div className="h3" style={{ color: '#fff' }}>{needGroups ? 'Make tonight\'s groups' : free ? 'Free for all' : `${nGroups} groups, ${s?.courts} courts`}</div>
+            <p className="sub" style={{ margin: '4px 0 12px' }}>{needGroups ? `Check everyone in, then split them by DUPR into ${nGroups} groups. They share the ${s?.courts} courts.` : free ? 'Every court takes the next four from one line.' : 'Each group plays within itself; a free court goes to the group that has waited longest. Late arrivals join the group their rating fits. Tap a name to move someone.'}
+              {[s?.free_at && !free ? `Free for all at ${clock(s.free_at)}.` : '', ...Object.entries(s?.court_opens ?? {}).map(([c, t]) => `Court ${c} opens ${clock(t)}.`)].filter(Boolean).map((x) => <span key={x} style={{ display: 'block', marginTop: 4, color: 'var(--gold)' }}>{x}</span>)}</p>
             <div className="btn-row" style={{ flexWrap: 'wrap' }}>
               <button className={'btn ' + (needGroups ? 'pink' : 'sm quiet')} style={needGroups ? undefined : { background: 'rgba(232,223,200,.12)', color: 'var(--cream)' }} disabled={busy} onClick={() => { if (needGroups || window.confirm('Split everyone who is off court into groups again?')) call('board_make_groups', { p_session: sid }, 'Groups made'); }}>{needGroups ? 'Make groups' : 'Re-split groups'}</button>
-              {!needGroups && <button className="btn sm pink" disabled={busy} onClick={() => call('board_set_phase', { p_session: sid, p_phase: free ? 'strict' : 'free' }, free ? 'Back to strict courts' : 'Free for all: one line for every court')}>{free ? 'Back to strict courts' : 'Switch to free for all'}</button>}
+              {!needGroups && <button className="btn sm pink" disabled={busy} onClick={() => call('board_set_phase', { p_session: sid, p_phase: free ? 'strict' : 'free' }, free ? 'Back to groups' : 'Free for all: one line for every court')}>{free ? 'Back to groups' : 'Free for all now'}</button>}
+              <button className="btn sm quiet" style={{ background: 'rgba(232,223,200,.12)', color: 'var(--cream)' }} onClick={() => { setSetup({ groups: nGroups, free: s?.free_at ?? '', opens: { ...(s?.court_opens ?? {}) } }); setSheet({ k: 'setup' }); }}>Tonight&apos;s format</button>
+              {!needGroups && <Link className="btn sm quiet" style={{ background: 'rgba(232,223,200,.12)', color: 'var(--cream)' }} href={'/courts/print/?s=' + sid}>Print groupings</Link>}
             </div>
           </div>
         )}
@@ -187,11 +195,10 @@ export default function Courts() {
               const pos = ups.findIndex((u) => u.includes(me.id)) + 1;
               return (
                 <>
-                  <div className="small">{free ? 'Free for all: next free court' : `${groupName(me.grp)}, your court is Court ${line}`}</div>
+                  <div className="small">{free ? 'Free for all: next free court' : `${groupName(me.grp)}: next free court for your group`}</div>
                   <div className="big">#{pos || '–'}<small> in line</small></div>
                   <p className="sub" style={{ marginTop: 6 }}>{me.games} game{me.games === 1 ? '' : 's'} played tonight. Winners stay one more game, then split.</p>
                   <div className="btn-row" style={{ marginTop: 12, flexWrap: 'wrap' }}>
-                    {openCourt && <button className="btn sm quiet" style={{ background: 'rgba(232,223,200,.12)', color: 'var(--cream)' }} disabled={busy} onClick={() => call('board_join_line', { p_session: sid, p_court: line === openCourt ? me.grp : openCourt }, line === openCourt ? `Back in line for Court ${me.grp}` : `In line for Court ${openCourt}`)}>{line === openCourt ? `Back to Court ${me.grp}` : `Play on Court ${openCourt} (open)`}</button>}
                     <button className="btn sm quiet" style={{ background: 'rgba(232,223,200,.12)', color: 'var(--cream)' }} onClick={() => setSheet({ k: 'partner' })}>{partner ? `With ${firstName(partner.name)}` : 'Pick a partner'}</button>
                     <button className="btn sm quiet" style={{ background: 'rgba(232,223,200,.12)', color: 'var(--cream)' }} disabled={busy} onClick={() => call('board_check_in', { p_session: sid, p_status: 'resting' }, 'Enjoy the break')}>Take a break</button>
                   </div>
@@ -239,17 +246,15 @@ export default function Courts() {
                 );
                 return (
                   <div key={n} className={'court free' + (run ? '' : ' quiet')}>
-                    <div className="cn"><span>Court {n}{groups ? ` · ${courtLabel(n)}` : ''}</span><span>Free</span></div>
-                    {groups ? (() => {
-                      const ups = lineUnits(b.players, lineOf(n)); const waiting = ups.flat().length;
-                      return run && waiting >= 4 ? (
+                    <div className="cn"><span>Court {n}</span><span>{closed(n) ? `Opens ${clock(opensAt(n)!)}` : 'Free'}</span></div>
+                    {groups ? (closed(n) ? <div className="next-four" style={{ marginTop: 10 }}>Opens at {clock(opensAt(n)!)}. The next game starts here by itself.</div> : run && upNext ? (
                         <>
-                          <div className="next-four"><b>Next:</b> {ups.flat().slice(0, 4).map((x) => firstName(nameOf(x))).join(', ')}</div>
+                          <div className="next-four"><b>Next{free ? '' : `, ${groupName(upNext.line)}`}:</b> {upNext.four.map((x) => firstName(nameOf(x))).join(', ')}</div>
                           <div style={{ flex: 1 }} />
                           <div className="act"><button className="btn" disabled={busy} onClick={() => call('board_next_game', { p_session: sid, p_court: n }, `Court ${n} started`)}>Start next game</button></div>
                         </>
-                      ) : <div className="next-four" style={{ marginTop: 10 }}>{waiting >= 4 ? 'Next game starts soon' : `${waiting} waiting, needs 4`}</div>;
-                    })() : run && plan ? (
+                      ) : <div className="next-four" style={{ marginTop: 10 }}>{upNext ? 'Next game starts soon' : 'Waiting for four players in a group'}</div>
+                    ) : run && plan ? (
                       <>
                         <div className="next-four"><b>{plan.label}</b><br />{plan.seats.slice(0, 2).map((x) => firstName(nameOf(x))).join(' & ')} vs {plan.seats.slice(2).map((x) => firstName(nameOf(x))).join(' & ')}</div>
                         <div style={{ flex: 1 }} />
@@ -268,14 +273,14 @@ export default function Courts() {
           </div>
 
           <div className="section">
-            <div className="section-head"><span className="h3">In line</span><span className="sub">{run ? (groups ? 'Tap a name: group, break, partner' : 'Tap a name: level, break, partner') : groups ? 'One line per court' : 'Grouped by level'}</span></div>
+            <div className="section-head"><span className="h3">In line</span><span className="sub">{run ? (groups ? 'Tap a name: group, break, partner' : 'Tap a name: level, break, partner') : groups ? (free ? 'One line for every court' : 'One line per group') : 'Grouped by level'}</span></div>
             <div className="stack">
-              {groups && (free ? [0] : courts).map((n) => {
+              {groups && lines.map((n) => {
                 const ups = lineUnits(b.players, n);
                 if (!ups.length) return null;
                 return (
                   <div key={'l' + n} className="queue">
-                    <div className="qh"><span>{n === 0 ? 'Free for all: every court' : `Court ${n} · ${courtLabel(n)}`}</span><span className="muted">{ups.flat().length} waiting</span></div>
+                    <div className="qh"><span>{n === 0 ? 'Free for all: every court' : groupName(n)}</span><span className="muted">{ups.flat().length} waiting</span></div>
                     {ups.map((u, i) => (
                       <div key={u[0]} className={'qp' + (me && u.includes(me.id) ? ' me' : '')}>
                         <span className="pos">{i + 1}</span>
@@ -342,6 +347,21 @@ export default function Courts() {
         </>
       )}
 
+      {sheet?.k === 'setup' && s && (
+        <Sheet title="Tonight's format" onClose={() => setSheet(null)}>
+          <div className="field"><span>Groups by DUPR</span>
+            <div className="seg">{Array.from({ length: Math.min(s.courts, 4) }, (_, i) => i + 1).map((g) => <button key={g} className={setup.groups === g ? 'on' : ''} onClick={() => setSetup({ ...setup, groups: g })}>{g}</button>)}</div>
+          </div>
+          <p className="small muted" style={{ marginTop: -6, marginBottom: 12 }}>The groups share all {s.courts} courts. After changing the number, tap Re-split groups.</p>
+          <label className="field"><span>Free for all from (optional)</span><input className="input" type="time" value={setup.free} onChange={(e) => setSetup({ ...setup, free: e.target.value })} /></label>
+          {courts.map((n) => (
+            <label key={n} className="field"><span>Court {n} opens</span>
+              <input className="input" type="time" value={setup.opens[String(n)] ?? ''} placeholder="From the start" onChange={(e) => { const o = { ...setup.opens }; if (e.target.value) o[String(n)] = e.target.value; else delete o[String(n)]; setSetup({ ...setup, opens: o }); }} /></label>
+          ))}
+          <p className="small muted" style={{ marginBottom: 12 }}>Leave a court empty if it&apos;s ready from the start. Free for all starts by itself at that time; you can also switch any time.</p>
+          <button className="btn pink" disabled={busy} onClick={async () => { await call('board_setup', { p_session: sid, p_groups: setup.groups, p_free_at: setup.free, p_opens: setup.opens }, 'Saved'); setSheet(null); }}>Save</button>
+        </Sheet>
+      )}
       {sheet?.k === 'finish' && b && <FinishSheet live={sheet.live} dupr={b.session.is_dupr || groups} nameOf={nameOf} busy={busy} onClose={() => setSheet(null)}
         canCancel={!!s?.is_admin} note={groups && !s?.is_admin ? 'Someone from the other team confirms the score, then the next game is called.' : undefined}
         onScore={(a, z) => groups

@@ -16,7 +16,7 @@ export interface BPlayer {
 }
 export interface BLive { id: string; court: number; game_no: number; started_at: string; seats: (string | null)[]; rep_a?: number | null; rep_b?: number | null; rep_by?: string | null; rep_name?: string | null }
 export interface BGame { id: string; game_no: number; court: number | null; score_a: number; score_b: number; status: string; seats: (string | null)[] }
-export interface BSession { id: string; label: string; venue: string; session_date: string; time_start: string; time_end: string; courts: number; is_dupr: boolean; board_open: boolean; is_admin: boolean; server_now: string; me: string | null; format?: 'groups' | 'levels'; phase?: 'strict' | 'free'; groups?: number; open_court?: number | null }
+export interface BSession { id: string; label: string; venue: string; session_date: string; time_start: string; time_end: string; courts: number; is_dupr: boolean; board_open: boolean; is_admin: boolean; server_now: string; me: string | null; format?: 'groups' | 'levels'; phase?: 'strict' | 'free'; groups?: number; open_court?: number | null; free_at?: string | null; court_opens?: Record<string, string> }
 export interface Board { session: BSession; players: BPlayer[]; live: BLive[]; games: BGame[] }
 
 export const LEVELS: { k: string; label: string; range: string }[] = [
@@ -121,3 +121,20 @@ export function myPlace(players: BPlayer[], me: string): { pos: number; group: s
 
 export const minutesSince = (iso: string, offsetMs: number) => Math.max(0, Math.floor((Date.now() - offsetMs - Date.parse(iso)) / 60000));
 export const firstName = (n: string) => n.split(' ')[0];
+
+/** "17:00" → "5:00 PM". */
+export const clock = (t: string) => { const [h, m] = t.split(':').map(Number); return `${((h + 11) % 12) + 1}:${String(m).padStart(2, '0')} ${h < 12 ? 'AM' : 'PM'}`; };
+
+/** The group whose next four get the next free court: fewest games on court first, then longest wait. */
+export function nextGroup(players: BPlayer[], live: BLive[], lines: number[]): { line: number; four: string[] } | null {
+  const byId = new Map(players.map((p) => [p.id, p]));
+  let best: { line: number; four: string[]; onCourt: number; t: string } | null = null;
+  for (const line of lines) {
+    const ups = lineUnits(players, line); const four: string[] = []; let t = '';
+    for (const u of ups) { if (four.length + u.length <= 4) { four.push(...u); const q = byId.get(u[0])?.queued_at ?? ''; if (!t || q < t) t = q; } if (four.length >= 4) break; }
+    if (four.length < 4) continue;
+    const onCourt = line === 0 ? 0 : live.filter((g) => g.seats.some((x) => x && byId.get(x)?.grp === line)).length;
+    if (!best || onCourt < best.onCourt || (onCourt === best.onCourt && t < best.t)) best = { line, four, onCourt, t };
+  }
+  return best && { line: best.line, four: best.four };
+}
