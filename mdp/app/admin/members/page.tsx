@@ -4,6 +4,7 @@ import { rpc } from '@/lib/supabase';
 import { useMe } from '@/lib/me';
 import { fmtDate, peso, rating } from '@/lib/format';
 import { Band, Empty, Loading, Sheet, useToast } from '@/components/Shell';
+import { ConductLog, reasonLabel } from '@/components/Conduct';
 
 interface M {
   id: string; full_name: string | null; email: string | null; phone: string | null; tier: string; joined: string;
@@ -30,6 +31,13 @@ export default function AdminMembers() {
   const [open, setOpen] = useState<M | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState('');
+  const [alerts, setAlerts] = useState<{ id: string; full_name: string; people: number; reasons: string[]; last_flag: string }[]>([]);
+  const [flagCounts, setFlagCounts] = useState<Record<string, number>>({});
+  const loadConduct = () => {
+    rpc<typeof alerts>('admin_conduct_alerts').then(setAlerts).catch(() => setAlerts([]));
+    rpc<{ id: string; people: number }[]>('admin_conduct_counts').then((l) => setFlagCounts(Object.fromEntries(l.map((x) => [x.id, x.people])))).catch(() => {});
+  };
+  useEffect(() => { loadConduct(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const load = useCallback(() => rpc<M[]>('admin_members').then(setList).catch((e) => { toast((e as Error).message, true); setList([]); }), [toast]);
   useEffect(() => { load(); }, [load]);
 
@@ -76,6 +84,24 @@ export default function AdminMembers() {
         <p className="sub" style={{ marginTop: 6 }}>{list.length} players. Tap a name to change their tier.</p>
       </Band>
 
+      {alerts.length > 0 && !q && (
+        <div className="section" style={{ paddingBottom: 0 }}>
+          <div className="card stack" style={{ borderColor: 'var(--warn)' }}>
+            <div className="between"><b>Flagged by 3 or more players</b><span className="tag wait">{alerts.length}</span></div>
+            <p className="small muted">Different players flagged them in the last 60 days. Open their log, talk to them, then add what you did.</p>
+            {alerts.map((a) => {
+              const m = list?.find((x) => x.id === a.id);
+              return (
+                <div key={a.id} className="between">
+                  <div><div style={{ fontWeight: 700 }}>{a.full_name}</div><div className="small muted">{a.people} players: {a.reasons.map((r) => reasonLabel(r).toLowerCase()).join('; ')}</div></div>
+                  {m && <button className="btn sm ghost inline" onClick={() => { setOpen(m); setNote(''); }}>Open</button>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {ready.length > 0 && (tab === 'all' || tab === 'community') && !q && (
         <div className="section">
           <div className="card stack">
@@ -105,7 +131,7 @@ export default function AdminMembers() {
               <button key={m.id} onClick={() => { setOpen(m); setNote(''); }} style={{ width: '100%', textAlign: 'left' }}>
                 <span className="grow"><b>{m.full_name || m.email}</b>{m.is_admin && <span className="tag" style={{ marginLeft: 6 }}>Admin</span>}<br />
                   <span className="small muted">{played(m)}{m.dupr ? `, DUPR ${rating(m.dupr)}` : ''}</span></span>
-                {m.blocked ? <span className="tag off">Blocked</span> : <span className={'tag ' + (m.tier === 'varsity' ? 'ok' : m.tier === 'flagged' ? 'off' : m.tier === 'community' ? 'wait' : '')}>{tierLabel(m.tier)}</span>}
+                {(flagCounts[m.id] ?? 0) >= 2 && <span className="tag wait">Flagged by {flagCounts[m.id]}</span>}{m.blocked ? <span className="tag off">Blocked</span> : <span className={'tag ' + (m.tier === 'varsity' ? 'ok' : m.tier === 'flagged' ? 'off' : m.tier === 'community' ? 'wait' : '')}>{tierLabel(m.tier)}</span>}
               </button>
             ))}
           </div>
@@ -137,6 +163,7 @@ export default function AdminMembers() {
               </>)}
             </div>
           )}
+          <ConductLog memberId={open.id} onChange={loadConduct} />
         </Sheet>
       )}
     </>

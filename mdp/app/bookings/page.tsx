@@ -8,6 +8,7 @@ import { loadMyRegs, type Reg } from '@/lib/sessions';
 import { GcashPay } from '@/components/GcashPay';
 import { Band, Empty, Loading, Sheet, useToast } from '@/components/Shell';
 import { Ticket } from '@/components/Ticket';
+import { FlagSheet } from '@/components/Conduct';
 
 const owed = (r: Reg) => Math.max(0, Number(r.amount || 0) - Number(r.credit_applied || 0) - Number(r.gcash_paid || 0));
 interface Move { at: string; amount: number; reason: string | null; balance_after: number }
@@ -22,6 +23,7 @@ export default function Bookings() {
   const [cancelling, setCancelling] = useState<Reg | null>(null);
   const [training, setTraining] = useState<{ booking_id: string; session_date: string; time_start: string; venue: string; partners: string; amount_due: number; all_settled: boolean }[] | null>(null);
   const [tab, setTab] = useState<'next' | 'past'>('next');
+  const [flagging, setFlagging] = useState<Reg | null>(null);
   const load = useCallback(() => {
     loadMyRegs().then(setRegs).catch(() => setRegs([]));
     rpc<Move[]>('my_wallet_history').then(setMoves).catch(() => setMoves([]));
@@ -37,6 +39,12 @@ export default function Bookings() {
   const upcoming = list.filter((r) => r.sessions!.session_date >= today && !['cancelled', 'rejected'].includes(r.status) && !r.sessions!.is_cancelled)
     .sort((a, b) => a.sessions!.session_date.localeCompare(b.sessions!.session_date));
   const past = list.filter((r) => !upcoming.includes(r));
+  // Sessions I played that started in the last 3 days: I can flag a concern about someone there.
+  const nowClock = new Date().toLocaleTimeString('en-GB', { timeZone: 'Asia/Manila', hour: '2-digit', minute: '2-digit', hour12: false });
+  const since = new Date(Date.parse(today + 'T12:00:00+08:00') - 3 * 86400_000).toISOString().slice(0, 10);
+  const flaggable = list.filter((r) => r.status === 'paid' && !r.sessions!.is_cancelled && r.sessions!.session_date >= since
+    && (r.sessions!.session_date < today || (r.sessions!.session_date === today && (r.sessions!.time_start || '').slice(0, 5) <= nowClock)))
+    .sort((a, b) => b.sessions!.session_date.localeCompare(a.sessions!.session_date)).slice(0, 2);
   const toPay = upcoming.filter((r) => (r.status === 'invited' || (r.status === 'pending' && !r.proof_url)) && owed(r) > 0);
 
   async function payWallet(r: Reg) {
@@ -89,6 +97,22 @@ export default function Bookings() {
           <button role="tab" aria-selected={tab === 'past'} className={tab === 'past' ? 'on' : ''} onClick={() => setTab('past')}>Past and cancelled</button>
         </div>
       </Band>
+
+      {flaggable.length > 0 && (
+        <div className="section" style={{ paddingBottom: 0 }}>
+          <div className="card stack">
+            <div><b>Something not right at a recent game?</b>
+              <p className="small muted" style={{ marginTop: 4 }}>Tell the admins privately. The player isn&apos;t told who sent it.</p></div>
+            {flaggable.map((r) => (
+              <div key={r.id} className="between">
+                <span className="small"><b>{r.sessions!.label}</b><br /><span className="muted">{fmtDate(r.sessions!.session_date)}</span></span>
+                <button className="btn sm ghost inline" onClick={() => setFlagging(r)}>Flag a concern</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {flagging && <FlagSheet sessionId={flagging.session_uuid} label={`${flagging.sessions!.label}, ${fmtDate(flagging.sessions!.session_date)}`} onClose={() => setFlagging(null)} />}
 
       <div className="section stack">
         {!regs ? <Loading rows={2} />
