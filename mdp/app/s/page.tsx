@@ -1,4 +1,5 @@
 'use client';
+import { gamesEach } from '@/lib/games';
 import Link from 'next/link';
 import { DuprLogo, DuprTag } from '@/components/Dupr';
 import { useEffect, useState } from 'react';
@@ -62,6 +63,7 @@ export default function SessionPage() {
     setBusy(false);
   }
 
+  const gEach = gamesEach(Number(s.max_players), Number(s.courts), s.time_start, s.time_end);
   return (
     <div className="has-cta">
       <Band back={{ href: '/', label: 'Sessions' }}>
@@ -81,6 +83,7 @@ export default function SessionPage() {
           {isDuprPlus(s) && <div><span style={{ width: 20, display: 'grid', placeItems: 'center' }}><DuprLogo h={9} /></span><div><b>DUPR+ members only</b><div className="muted small">Verified, paying DUPR accounts only, so every rating on court is real. DUPR+ is DUPR&apos;s own membership; you join it in the DUPR app.</div></div></div>}
           {dupr && <div><span style={{ width: 20, display: 'grid', placeItems: 'center' }}><DuprLogo h={9} /></span><div><b>Every game counts for DUPR</b><div className="muted small">Scores are entered on the court board and sent to DUPR after the night. Link your DUPR account in Me.</div></div></div>}
           <div><Icon name="court" /><div><b>The app runs the courts</b><div className="muted small">Tap I&apos;m here when you arrive. You&apos;re grouped by level and called to a court when it&apos;s your turn.</div></div></div>
+          {gEach !== null && <div><Icon name="clock" /><div><b>About {gEach} games each when full</b><div className="muted small">{s.max_players} players on {s.courts} court{s.courts === 1 ? '' : 's'} for {fmtClock(s.time_start)} to {fmtClock(s.time_end)}. Games run about 15 minutes. More if fewer people come.</div></div></div>}
           {s.requires_approval && <div><Icon name="users" /><div><b>{host ?? 'The host'} approves players first</b><div className="muted small">Ask to join. You only pay once you&apos;re approved.</div></div></div>}
           {s.venue_proof_path && <div><Icon name="check" /><div><b>Court booking checked</b><div className="muted small">The host&apos;s court reservation is on file with MDP.</div></div></div>}
         </div>

@@ -1,6 +1,7 @@
 // The message an admin or organizer posts on Reclub or Viber when a session goes up.
 // Plain text with a few emoji, so it reads well in a group chat and pastes cleanly anywhere.
 import { TZ, fmtClock, peso } from './format';
+import { gamesEach } from './games';
 
 export interface AnnounceSession {
   id: string; label: string; session_date: string; time_start: string; time_end: string; venue: string;
@@ -31,6 +32,8 @@ export function announcement(s: AnnounceSession, opts: { hostedBy?: string | nul
   lines.push(`📍 ${s.venue}`);
   const bits = [s.fee !== null && s.fee !== undefined ? peso(s.fee) : null, s.max_players ? `${s.max_players} spots` : null, s.courts ? `${s.courts} courts` : null].filter(Boolean);
   if (bits.length) lines.push(`💰 ${bits.join(' · ')}`);
+  const g = s.session_type === 'coaching' ? null : gamesEach(Number(s.max_players), Number(s.courts), s.time_start, s.time_end);
+  if (g !== null) lines.push(`🎾 About ${g} games each when full`);
   if (need === 'PREMIUM_L1') lines.push('⭐ DUPR+ members only: verified DUPR accounts, so every level is real');
   else if (need) lines.push('📈 DUPR night: every game counts on DUPR. Everyone (guests too) needs a DUPR account connected in the app');
   else lines.push('🙌 Open to all, no DUPR needed');

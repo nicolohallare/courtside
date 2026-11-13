@@ -449,3 +449,4 @@ textarea.input { min-height: 90px; resize: vertical; }
   @page { size: letter; margin: 12mm; }
 }
 @media (max-width: 560px) { .gs-groups { grid-template-columns: 1fr !important; } .gs-phases, .gs-rules { grid-template-columns: 1fr; } .gs-title { font-size: 24px; } .gs-foot { flex-direction: column; align-items: flex-start; } }
+.crowd-warn { color: var(--warn); font-weight: 600; background: rgba(201, 120, 40, .1); padding: 10px 12px; border-radius: var(--r-sm); }

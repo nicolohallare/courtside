@@ -1,4 +1,5 @@
 'use client';
+import { CrowdNote } from '@/components/CrowdNote';
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { AdminBand, AdminOnly } from '@/components/AdminBits';
@@ -143,6 +144,7 @@ function Form() {
         {txt('venue', 'Venue')}
         <p className="small muted" style={{ marginTop: -6, marginBottom: 14 }}>Booking opens: {WINDOWS_TEXT}</p>
         {!training && <div className="form-grid">{txt('max_players', 'Max players', { type: 'number', inputMode: 'numeric' })}{txt('courts', 'Courts', { type: 'number', inputMode: 'numeric' })}</div>}
+        {!training && <CrowdNote players={Number(f.max_players)} courts={Number(f.courts)} start={String(f.time_start)} end={String(f.time_end)} />}
 
         {training && (
           <div className="card" style={{ marginBottom: 14 }}>

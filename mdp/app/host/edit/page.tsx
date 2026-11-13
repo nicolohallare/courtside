@@ -1,4 +1,5 @@
 'use client';
+import { CrowdNote } from '@/components/CrowdNote';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { rpc } from '@/lib/supabase';
@@ -49,6 +50,7 @@ export default function HostEdit() {
         <div className="btn-row"><label className="field"><span>Start</span><input className="input" type="time" value={f.time_start} onChange={set('time_start')} {...fixed} /></label><label className="field"><span>End</span><input className="input" type="time" value={f.time_end} onChange={set('time_end')} {...fixed} /></label></div>
         <label className="field"><span>Venue</span><input className="input" value={f.venue} onChange={set('venue')} placeholder="Vantage, Pasig" {...fixed} /></label>
         <div className="btn-row"><label className="field"><span>Fee per player</span><input className="input" inputMode="numeric" value={f.fee} onChange={set('fee')} {...fixed} /></label><label className="field"><span>Max players</span><input className="input" inputMode="numeric" value={f.max_players} onChange={set('max_players')} /></label><label className="field"><span>Courts</span><input className="input" inputMode="numeric" value={f.courts} onChange={set('courts')} /></label></div>
+        <CrowdNote players={Number(f.max_players)} courts={Number(f.courts)} start={f.time_start} end={f.time_end} />
         <label className="field"><span>Note for players (optional)</span><textarea className="input" rows={2} value={f.notes} onChange={set('notes')} placeholder="Level, what to bring, parking" /></label>
         <p className="small muted" style={{ marginBottom: 12 }}>Players pay through the app; every receipt is checked. What they pay is held by MDP and sent to you after the session.</p>
         <button className="btn pink" disabled={busy} onClick={save}>{busy ? 'Saving…' : id ? 'Save' : 'Save draft'}</button>
