@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode, type MouseEvent } from 'react';
 import { useMe } from '@/lib/me';
 import { IS_DEMO, sb } from '@/lib/supabase';
 import { CLASSIC_URL } from '@/lib/classic';
@@ -41,11 +41,25 @@ export function Header() {
     location.replace(back);
   }, []);
   const initials = (profile?.full_name ?? '').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+  // Hidden game: five quick taps on the logo open MDP Kitchen Sense (public/play/), at the member's DUPR level.
+  const taps = useRef<number[]>([]);
+  const onLogo = (e: MouseEvent) => {
+    const now = Date.now();
+    taps.current = [...taps.current.filter((t) => now - t < 2500), now];
+    if (taps.current.length < 5) return;
+    e.preventDefault();
+    taps.current = [];
+    const q = new URLSearchParams();
+    if (profile?.dupr_doubles) q.set('dupr', String(profile.dupr_doubles));
+    const first = (profile?.full_name ?? '').trim().split(/\s+/)[0];
+    if (first) q.set('name', first);
+    location.href = '/play/' + (q.toString() ? '?' + q.toString() : '');
+  };
   return (
     <>
       {IS_DEMO && <div className="demo-strip">Demo with sample players. Nothing here touches the live app.</div>}
       <header className="top">
-        <Link href="/" className="row" aria-label="Match Day Pickle home">
+        <Link href="/" className="row" aria-label="Match Day Pickle home" onClick={onLogo}>
           <img className="logo" src="/mdp-logo.webp" alt="" />
           <span className="word">Match Day<br /><b>Pickle!</b></span>
         </Link>
