@@ -154,6 +154,7 @@ export default function Courts() {
               {!needGroups && <button className="btn sm pink" disabled={busy} onClick={() => call('board_set_phase', { p_session: sid, p_phase: free ? 'strict' : 'free' }, free ? 'Back to groups' : 'Free for all: one line for every court')}>{free ? 'Back to groups' : 'Free for all now'}</button>}
               <button className="btn sm quiet" style={{ background: 'rgba(232,223,200,.12)', color: 'var(--cream)' }} onClick={() => { setSetup({ groups: nGroups, free: s?.free_at ?? '', opens: { ...(s?.court_opens ?? {}) } }); setSheet({ k: 'setup' }); }}>Tonight&apos;s format</button>
               {!needGroups && <Link className="btn sm quiet" style={{ background: 'rgba(232,223,200,.12)', color: 'var(--cream)' }} href={'/courts/print/?s=' + sid}>Print groupings</Link>}
+              <Link className="btn sm quiet" style={{ background: 'rgba(232,223,200,.12)', color: 'var(--cream)' }} href={'/courts/screen/?s=' + sid}>Shared screen</Link>
             </div>
           </div>
         )}
@@ -226,6 +227,7 @@ export default function Courts() {
         <>
           <div className="section">
             <div className="section-head"><span className="h3">Courts</span><span className="sub">{b.players.filter((p) => p.status === 'here').length} waiting</span></div>
+            {run && !groups && <p className="small muted" style={{ marginTop: -4, marginBottom: 10 }}>Have a TV or tablet at the venue? <Link className="link" href={'/courts/screen/?s=' + sid}>Open the shared screen</Link> on it so players can see their court and who&apos;s next.</p>}
             <div className="court-grid">
               {courts.map((n) => {
                 const lv = liveOn(n), plan = plans.get(n);
