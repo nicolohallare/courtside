@@ -14,6 +14,7 @@ parts = [
   ("Court groups (Chris's format)", src('groups.sql')),
   ('Overpayments', src('admin.sql')),
   ('Members screen', src('members.sql')),
+  ('Conduct: private flags after a session, admin log', src('conduct.sql')),
   ('Coaching: the app collects only the club share', src('training_club_only.sql')),
   ('Booking windows: Varsity 2 weeks, Member 5 days, Community 3 days, Flagged 1 hour', bw),
 ]

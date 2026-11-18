@@ -1,5 +1,5 @@
 // DUPR for the MDP app (signed-in members only).
-//   Players: sso-url, connect, status, disconnect, entitlements
+//   Players: sso-url, connect, status, disconnect, entitlements, refresh-rating
 //   Admins:  send-session, remove-match, update-match
 // DUPR's rating updates arrive at the separate dupr-partner function (no login on that one).
 // Keys live in Edge Function secrets. Player DUPR logins are stored server-side only.
@@ -124,6 +124,24 @@ Deno.serve(async (req) => {
     const { data: l } = await db.from('dupr_links').select('dupr_id, rating_doubles, rating_singles, entitlements, entitlements_checked_at, basic_info, connected_at').eq('user_id', uid).eq('env', ENV).maybeSingle();
     if (!l) return json({ connected: false, env: ENV });
     return json({ connected: true, env: ENV, dupr_id: l.dupr_id, doubles: l.rating_doubles, singles: l.rating_singles, eligible: hasBasic(l.entitlements), checked_at: l.entitlements_checked_at, name: l.basic_info?.fullName ?? null, connected_at: l.connected_at });
+  }
+
+  // Ratings come from DUPR's RATING webhook. If one was missed, the player can ask for their own
+  // rating once (DUPR, Nov 15: fetch that one player when an event is missed; never on a schedule).
+  // At most once an hour per player.
+  if (a === 'refresh-rating' && req.method === 'POST') {
+    const { data: l } = await db.from('dupr_links').select('dupr_id, rating_doubles, rating_singles, rating_checked_at').eq('user_id', uid).eq('env', ENV).maybeSingle();
+    if (!l) return json({ error: 'Connect DUPR first.' }, 400);
+    if (l.rating_checked_at && Date.now() - new Date(l.rating_checked_at).getTime() < 3600_000) {
+      return json({ ok: true, doubles: l.rating_doubles, singles: l.rating_singles, recent: true });
+    }
+    const info = await partner(`/user/v1.0/${l.dupr_id}`);
+    const r = info.body?.result?.ratings;
+    if (info.status !== 200 || !r) return json({ error: 'Could not reach DUPR right now. Try again in a minute.' }, 502);
+    const doubles = num(r.doubles), singles = num(r.singles), now = new Date().toISOString();
+    await db.from('dupr_links').update({ rating_doubles: doubles, rating_singles: singles, rating_checked_at: now, updated_at: now }).eq('dupr_id', l.dupr_id).eq('env', ENV);
+    if (PROD) await db.from('profiles').update({ dupr_doubles: doubles, dupr_singles: singles, dupr_updated_at: now }).eq('id', uid).eq('dupr_short_id', l.dupr_id);
+    return json({ ok: true, doubles, singles });
   }
 
   if (a === 'connect' && req.method === 'POST') {

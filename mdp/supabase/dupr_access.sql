@@ -9,6 +9,8 @@
 
 alter table sessions add column if not exists dupr_access text check (dupr_access in ('BASIC_L1', 'PREMIUM_L1'));
 alter table dupr_sheet_players add column if not exists dupr_override_by uuid;
+-- When a player last asked DUPR for their own rating (refresh-rating, at most once an hour).
+alter table dupr_links add column if not exists rating_checked_at timestamptz;
 
 -- What a session asks of players: null, 'BASIC_L1' or 'PREMIUM_L1'.
 create or replace function session_dupr_need(p_session uuid) returns text
