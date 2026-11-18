@@ -13,6 +13,8 @@ export interface BPlayer {
   queued_at: string | null; partner_id: string | null; games: number;
   /** Court groups (Chris's format): the player's group, the court line they wait in, games stayed as a winner. */
   grp?: number | null; line?: number | null; streak?: number;
+  /** Where the level came from when there's no DUPR rating: 'self' (player said) or 'host' (a host set it). */
+  level_src?: 'dupr' | 'self' | 'host' | null;
 }
 export interface BLive { id: string; court: number; game_no: number; started_at: string; seats: (string | null)[]; rep_a?: number | null; rep_b?: number | null; rep_by?: string | null; rep_name?: string | null }
 export interface BGame { id: string; game_no: number; court: number | null; score_a: number; score_b: number; status: string; seats: (string | null)[] }

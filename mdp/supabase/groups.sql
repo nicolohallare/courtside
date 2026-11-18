@@ -94,14 +94,14 @@ begin
 end $$;
 create or replace function _sheet_rating(p_player uuid) returns numeric
 language sql stable security definer set search_path = public as $$
-  select coalesce(p.dupr_doubles, 0) from dupr_sheet_players sp left join profiles p on p.id = sp.profile_id where sp.id = p_player;
+  select _eff_rating(p.dupr_doubles, coalesce(sp.level, p.play_level)) from dupr_sheet_players sp left join profiles p on p.id = sp.profile_id where sp.id = p_player;
 $$;
 
 -- The group a player's rating fits, given the groups already made tonight.
 create or replace function _fit_group(p_session uuid, p_player uuid) returns int
 language sql stable security definer set search_path = public as $$
   with g as (
-    select sp.grp, min(coalesce(p.dupr_doubles, 0)) lo
+    select sp.grp, min(_eff_rating(p.dupr_doubles, coalesce(sp.level, p.play_level))) lo
     from dupr_sheet_players sp left join profiles p on p.id = sp.profile_id
     where sp.session_id = p_session and sp.grp is not null and sp.id <> p_player
     group by sp.grp)
@@ -120,7 +120,7 @@ begin
   if total = 0 then raise exception 'Check players in first'; end if;
   per := ceil(total::numeric / n);
   with ranked as (
-    select sp.id, row_number() over (order by coalesce(p.dupr_doubles, 0) desc, sp.arrived_at nulls last, sp.ref_no) rn
+    select sp.id, row_number() over (order by _eff_rating(p.dupr_doubles, coalesce(sp.level, p.play_level)) desc, sp.arrived_at nulls last, sp.ref_no) rn
     from dupr_sheet_players sp left join profiles p on p.id = sp.profile_id
     where sp.session_id = p_session and sp.status in ('here', 'playing', 'resting'))
   update dupr_sheet_players sp set grp = least(n, ((r.rn - 1) / per) + 1)
@@ -362,6 +362,7 @@ begin
     'players', (select coalesce(jsonb_agg(jsonb_build_object(
         'id', sp.id, 'ref_no', sp.ref_no, 'name', coalesce(nullif(trim(p.full_name), ''), sp.name),
         'rating', p.dupr_doubles, 'linked', p.dupr_id is not null, 'level', sp.level, 'stack', sp.stack, 'status', sp.status,
+        'level_src', case when p.dupr_doubles is not null then 'dupr' else p.play_level_src end,
         'queued_at', sp.queued_at, 'partner_id', sp.partner_id, 'hidden', sp.hidden, 'grp', sp.grp, 'line', sp.line, 'streak', sp.streak,
         'games', (select count(*) from match_records m where m.session_id = p_session
                    and m.status in ('pending_review','approved','submitted','needs_dupr') and sp.id = any(coalesce(m.sheet_seats, '{}'::uuid[])))

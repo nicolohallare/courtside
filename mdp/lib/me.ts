@@ -6,6 +6,7 @@ export interface Profile {
   id: string; full_name: string | null; phone: string | null; access_tier: string | null;
   is_varsity: boolean | null; is_admin: boolean | null; super_admin: boolean | null;
   dupr_doubles: number | null; dupr_singles: number | null; rules_version_accepted?: number | null; email?: string | null; dupr_id?: string | null;
+  play_level?: string | null; play_level_src?: string | null;
 }
 
 /** The signed-in member: profile and wallet balance. */
@@ -16,7 +17,7 @@ export function useMe() {
   const load = useCallback(async () => {
     if (!userId) { setProfile(null); setWallet(null); return; }
     const { data } = await sb().from('profiles')
-      .select('id, full_name, phone, email, access_tier, is_varsity, is_admin, super_admin, dupr_doubles, dupr_singles, rules_version_accepted, dupr_id').eq('id', userId).single();
+      .select('id, full_name, phone, email, access_tier, is_varsity, is_admin, super_admin, dupr_doubles, dupr_singles, rules_version_accepted, dupr_id, play_level, play_level_src').eq('id', userId).single();
     let p = data as Profile | null;
     // A new member gives their mobile number when signing up; it arrives with the account and is saved once.
     if (p && !String(p.phone ?? '').trim()) {

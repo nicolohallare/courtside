@@ -7,6 +7,7 @@ bw = src('booking_windows.sql'); bw = bw[:bw.index('select key, value')]
 tr = src('tournaments.sql')
 tdupr = tr[tr.index('-- A player\'s DUPR standing'):tr.index('create or replace function _t_organizer')]
 parts = [
+  ('Levels for players without DUPR', src('levels.sql')),
   ('Court board, and hosts running their own sessions', src('court_board.sql')),
   ('DUPR standing', tdupr + "revoke all on function _t_dupr(uuid) from public, anon, authenticated;\n"),
   ('DUPR access (off until production DUPR: dupr_gate)', da),

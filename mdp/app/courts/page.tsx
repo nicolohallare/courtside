@@ -395,12 +395,19 @@ export default function Courts() {
         const p = byId.get(sheet.p.id) ?? sheet.p; const mate = p.partner_id ? byId.get(p.partner_id) : null;
         return (
           <Sheet title={p.name} onClose={() => setSheet(null)}>
-            <p className="sub" style={{ marginBottom: 12 }}>{p.rating ? `DUPR ${Number(p.rating).toFixed(2)}` : 'No DUPR rating'}{!p.linked && s?.is_dupr ? '. DUPR not connected, so games can\'t be sent for them.' : ''}. {p.games} games tonight.</p>
-            {groups ? (
+            <p className="sub" style={{ marginBottom: 12 }}>{p.rating ? `DUPR ${Number(p.rating).toFixed(2)}` : 'No DUPR rating'}{!p.linked && s?.is_dupr ? '. DUPR not connected, so games can\'t be sent for them.' : ''}. {p.games} game{p.games === 1 ? '' : 's'} tonight.</p>
+            {!p.rating && <p className="small" style={{ marginTop: -6, marginBottom: 12, color: p.level_src === 'self' || !p.level ? 'var(--warn)' : 'var(--muted)' }}>
+              {!p.level ? 'No level yet. Set one below; the app remembers it for their next open play.'
+                : p.level_src === 'self' ? `${levelName(p.level)} is self-rated. Watch their first game and change it if it's off; the app remembers your call.`
+                : `${levelName(p.level)}, set by a host. The app remembers it until they connect DUPR.`}</p>}
+            {groups ? (<>
               <div className="field"><span>Group</span>
                 <div className="seg">{Array.from({ length: s?.groups ?? 2 }, (_, i) => i + 1).map((g) => <button key={g} className={p.grp === g ? 'on' : ''} disabled={busy} onClick={() => call('board_move_group', { p_player: p.id, p_grp: g }, `${firstName(p.name)} is in ${groupName(g)}`)}>{groupName(g)}</button>)}</div>
               </div>
-            ) : <div className="field"><span>Level</span>
+              {!p.rating && <div className="field"><span>Level (remembered for next time)</span>
+                <div className="seg">{LEVELS.filter((l) => l.k !== '?').map((l) => <button key={l.k} className={p.level === l.k ? 'on' : ''} disabled={busy} onClick={() => call('dupr_board_move', { p_player: p.id, p_level: l.k, p_stack: null, p_front: false }, `Saved: ${firstName(p.name)} plays ${l.label}`)}>{l.label.replace('-Intermediate', '-Int')}</button>)}</div>
+              </div>}
+            </>) : <div className="field"><span>Level</span>
               <div className="seg">{LEVELS.filter((l) => l.k !== '?').map((l) => <button key={l.k} className={p.level === l.k ? 'on' : ''} disabled={busy} onClick={() => call('dupr_board_move', { p_player: p.id, p_level: l.k, p_stack: null, p_front: false })}>{l.label.replace('-Intermediate', '-Int')}</button>)}</div>
             </div>}
             <div className="field"><span>Status</span>

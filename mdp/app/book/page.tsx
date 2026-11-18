@@ -10,6 +10,7 @@ import { GcashPay } from '@/components/GcashPay';
 import { Band, Empty, Loading, useToast } from '@/components/Shell';
 import { Icon } from '@/components/Icon';
 import { RulesSheet, loadRules } from '@/components/Rules';
+import { LevelSheet } from '@/components/Level';
 
 type Step = 'details' | 'gcash' | 'done';
 interface Result { status: string; id: string }
@@ -31,7 +32,12 @@ export default function Book() {
   const [askRules, setAskRules] = useState<null | (() => void)>(null);
   useEffect(() => { if (userId) loadRules().then((r) => setRulesOk(!r || r.already_accepted)).catch(() => {}); }, [userId]);
   // New members agree to the house rules once, before their first booking.
-  const withRules = (go: () => void) => { if (rulesOk) go(); else setAskRules(() => go); };
+  // Players without DUPR say their level once, before their first booking.
+  const [levelDone, setLevelDone] = useState(false);
+  const [askLevel, setAskLevel] = useState<null | (() => void)>(null);
+  const needLevel = !!profile && profile.dupr_doubles == null && !profile.play_level && !levelDone;
+  const withLevel = (go: () => void) => { if (needLevel) setAskLevel(() => go); else go(); };
+  const withRules = (go: () => void) => { const next = () => withLevel(go); if (rulesOk) next(); else setAskRules(() => next); };
 
   useEffect(() => {
     const id = new URLSearchParams(location.search).get('s');
@@ -71,6 +77,7 @@ export default function Book() {
             : <><p className="small">Your wallet has {peso(bal0)}. Top up {peso(fee - bal0)} or more to join.</p><Link className="btn pink" href={`/topup/?amount=${Math.ceil(fee - bal0)}`}>Top up my wallet</Link></>}
         </div>
         {askRules && <RulesSheet onClose={() => setAskRules(null)} onAccept={() => { const go = askRules; setRulesOk(true); setAskRules(null); go(); }} />}
+        {askLevel && <LevelSheet onClose={() => setAskLevel(null)} onDone={() => { const go = askLevel; setLevelDone(true); setAskLevel(null); reload(); go(); }} />}
       </>
     );
   }
@@ -169,6 +176,7 @@ export default function Book() {
           : <button className="btn pink" onClick={() => { if (guest && !guestName.trim()) { toast('Add your guest\'s full name.', true); return; } withRules(() => setStep('gcash')); }}>Continue to GCash</button>}
       </div>
       {askRules && <RulesSheet onClose={() => setAskRules(null)} onAccept={() => { const go = askRules; setRulesOk(true); setAskRules(null); go(); }} />}
+        {askLevel && <LevelSheet onClose={() => setAskLevel(null)} onDone={() => { const go = askLevel; setLevelDone(true); setAskLevel(null); reload(); go(); }} />}
     </>
   );
 }

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { fn, mdpApi, sb, IS_DEMO } from '@/lib/supabase';
 import { nameProblem, normPhone } from '@/lib/me';
 import { Feedback } from '@/components/Feedback';
+import { LevelSheet, LEVEL_NAMES } from '@/components/Level';
 import { RulesSheet } from '@/components/Rules';
 import { myOrgs } from '@/lib/host';
 import { useMe } from '@/lib/me';
@@ -74,6 +75,7 @@ export default function Me() {
     catch (e) { toast((e as Error).message, true); }
   }
 
+  const [askLevel, setAskLevel] = useState(false);
   if (!ready) return <Loading />;
   if (!userId) return <><Band><h1 className="h1" style={{ marginTop: 10 }}>Me</h1></Band><Empty title="Sign in to see your profile"><Link className="link" href="/login/?next=/me/">Sign in</Link></Empty></>;
 
@@ -125,6 +127,9 @@ export default function Me() {
           <div><Icon name="bell" /><span className="grow">Notifications<br /><span className="small muted">{push === 'on' ? 'On for this phone' : push === 'needs-install' ? 'On iPhone, add the app to your Home Screen first (Share, then Add to Home Screen)' : push === 'blocked' ? 'Blocked. Allow them in your phone\'s settings' : push === 'unsupported' ? 'This browser can\'t show notifications' : 'Payments approved, spots opening, your turn on court'}</span></span>
             {push === 'off' && <button className="btn sm pink inline" onClick={enablePush}>Turn on</button>}</div>
           <button onClick={() => setEdit({ name: profile?.full_name ?? '', phone: profile?.phone ?? '' })} style={{ width: '100%', textAlign: 'left' }}><Icon name="user" /><span className="grow">Name and mobile<br /><span className="small muted">{profile?.phone || 'Mobile not set yet'}</span></span><Icon name="chev" className="chev" /></button>
+          {!d && (profile?.play_level_src === 'host'
+            ? <div><Icon name="court" /><span className="grow">My level<br /><span className="small muted">{LEVEL_NAMES[profile.play_level ?? ''] ?? 'Not set'}, set by a host</span></span></div>
+            : <button onClick={() => setAskLevel(true)} style={{ width: '100%', textAlign: 'left' }}><Icon name="court" /><span className="grow">My level<br /><span className="small muted">{profile?.play_level ? `${LEVEL_NAMES[profile.play_level]}, self-rated` : 'Not set. Tell us so you play at your level'}</span></span><Icon name="chev" className="chev" /></button>)}
           <Link href="/topup/"><Icon name="wallet" /><span className="grow">Top up my wallet</span><Icon name="chev" className="chev" /></Link>
           <Link href="/training/"><Icon name="trophy" /><span className="grow">Coaching<br /><span className="small muted">Book an hour with the coach</span></span><Icon name="chev" className="chev" /></Link>
           <button onClick={() => setRules(true)} style={{ width: '100%', textAlign: 'left' }}><Icon name="info" /><span className="grow">House rules</span><Icon name="chev" className="chev" /></button>
@@ -153,6 +158,7 @@ export default function Me() {
       )}
       {fb && <Feedback onClose={() => setFb(false)} />}
       {rules && <RulesSheet onClose={() => setRules(false)} />}
+      {askLevel && <LevelSheet onClose={() => setAskLevel(false)} onDone={() => { setAskLevel(false); reload(); toast('Saved. Hosts will see it as self-rated.'); }} />}
       {confirmOff && (
         <Sheet title="Disconnect DUPR?" onClose={() => setConfirmOff(false)}>
           <p className="sub" style={{ marginBottom: 14 }}>Your rating stops updating here, and you can&apos;t join DUPR nights until you connect again. Games already sent stay on DUPR.</p>
